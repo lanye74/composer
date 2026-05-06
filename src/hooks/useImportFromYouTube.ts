@@ -5,15 +5,24 @@ import { extractVideoId } from "@/utils/youtube-url";
 
 // -- Constants ----------------------------------------------------------------
 
-const YOUTUBE_PARAM = "youtube";
+const YOUTUBE_PARAM_NAMES = ["youtube", "videoId", "v"] as const;
 
 // -- Functions ----------------------------------------------------------------
 
-function cleanYouTubeParamFromUrl(): void {
+function readYouTubeParam(params: URLSearchParams): string | null {
+  for (const name of YOUTUBE_PARAM_NAMES) {
+    const value = params.get(name);
+    if (value) return value;
+  }
+  return null;
+}
+
+function cleanYouTubeParamsFromUrl(): void {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
-  url.searchParams.delete(YOUTUBE_PARAM);
-  const next = url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : "") + url.hash;
+  for (const name of YOUTUBE_PARAM_NAMES) url.searchParams.delete(name);
+  const search = url.searchParams.toString();
+  const next = url.pathname + (search ? `?${search}` : "") + url.hash;
   window.history.replaceState(null, "", next);
 }
 
@@ -25,11 +34,11 @@ function useImportFromYouTube(): void {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    const raw = params.get(YOUTUBE_PARAM);
+    const raw = readYouTubeParam(params);
     if (!raw) return;
 
     const videoId = extractVideoId(raw);
-    cleanYouTubeParamFromUrl();
+    cleanYouTubeParamsFromUrl();
 
     if (!videoId) {
       toast.error("That URL doesn't look like a valid YouTube video");
@@ -41,4 +50,4 @@ function useImportFromYouTube(): void {
 
 // -- Exports ------------------------------------------------------------------
 
-export { useImportFromYouTube, YOUTUBE_PARAM };
+export { useImportFromYouTube, YOUTUBE_PARAM_NAMES };

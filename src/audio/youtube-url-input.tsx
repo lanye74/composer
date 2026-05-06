@@ -58,7 +58,7 @@ const YouTubeUrlInput: React.FC<YouTubeUrlInputProps> = ({
           spellCheck={false}
           autoCapitalize="off"
           autoComplete="off"
-          className="flex-1 px-3 py-2 text-sm rounded-md bg-composer-input border border-composer-border focus:outline-none focus:border-composer-accent cursor-text disabled:opacity-50 select-text"
+          className="flex-1 h-8 px-3 text-sm rounded-md bg-composer-input border border-composer-border focus:outline-none focus:border-composer-accent cursor-text disabled:opacity-50 select-text"
         />
         <Button variant="primary" hasIcon onClick={handleSubmit} disabled={isLoading || trimmed.length === 0}>
           {isLoading ? <IconLoader2 size={16} className="animate-spin" /> : <IconBrandYoutube size={16} />}
