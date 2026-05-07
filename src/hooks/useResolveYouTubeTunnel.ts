@@ -8,10 +8,18 @@ import { CobaltApiError, getAudio } from "@/utils/cobalt-api";
 // -- Constants ----------------------------------------------------------------
 
 const LOG_PREFIX = "[YouTubeTunnel]";
+const AUDIO_MIME = "audio/ogg";
 
 // -- Module state -------------------------------------------------------------
 
-const inFlightVideoIds = new Set<string>();
+const inFlight = new Map<string, AbortController>();
+
+// -- Functions ----------------------------------------------------------------
+
+function buildAudioFile(buffer: ArrayBuffer, filename: string | undefined, videoId: string): File {
+  const safeName = (filename ?? videoId).replace(/[\\/:*?"<>|]/g, "").trim() || videoId;
+  return new File([buffer], `${safeName}.opus`, { type: AUDIO_MIME });
+}
 
 // -- Hook ---------------------------------------------------------------------
 
@@ -21,53 +29,80 @@ function useResolveYouTubeTunnel(): void {
   ensureRef.current = ensureAuth;
 
   useEffect(() => {
-    const handleSourceChange = (videoId: string) => {
-      if (inFlightVideoIds.has(videoId)) return;
-      inFlightVideoIds.add(videoId);
+    const handleSourceChange = async (videoId: string) => {
+      const existing = inFlight.get(videoId);
+      if (existing) return;
+
+      const controller = new AbortController();
+      inFlight.set(videoId, controller);
       useAudioStore.getState().setIsLoading(true);
 
-      ensureRef
-        .current()
-        .then((jwt) => getAudio(videoId, jwt))
-        .then(({ tunnelUrl, expiresAt, filename }) => {
-          const current = useAudioStore.getState().source;
-          if (current?.type === "youtube" && current.videoId === videoId) {
-            useAudioStore.getState().setYouTubeTunnel(tunnelUrl, expiresAt);
-            if (filename) {
-              const project = useProjectStore.getState();
-              const currentTitle = project.metadata.title;
-              if (!currentTitle || currentTitle === videoId) {
-                project.setMetadata({ title: filename });
-              }
-            }
+      try {
+        const jwt = await ensureRef.current();
+        if (controller.signal.aborted) return;
+        const { tunnelUrl, filename } = await getAudio(videoId, jwt);
+        if (controller.signal.aborted) return;
+
+        const res = await fetch(tunnelUrl, { signal: controller.signal });
+        if (!res.ok) throw new CobaltApiError("cobalt_failed", res.status);
+        const buffer = await res.arrayBuffer();
+        if (controller.signal.aborted) return;
+
+        const current = useAudioStore.getState().source;
+        if (current?.type !== "youtube" || current.videoId !== videoId) return;
+
+        const file = buildAudioFile(buffer, filename, videoId);
+        useAudioStore.getState().setYouTubeFile(file);
+
+        if (filename) {
+          const project = useProjectStore.getState();
+          const currentTitle = project.metadata.title;
+          if (!currentTitle || currentTitle === videoId) {
+            project.setMetadata({ title: filename });
           }
-        })
-        .catch((err) => {
-          console.error(LOG_PREFIX, "tunnel fetch failed", err);
-          const message = err instanceof CobaltApiError ? err.message : "Couldn't load YouTube audio";
-          toast.error(message);
-          const current = useAudioStore.getState().source;
-          if (current?.type === "youtube" && current.videoId === videoId) {
-            useAudioStore.getState().setSource(null);
-          }
-        })
-        .finally(() => {
-          inFlightVideoIds.delete(videoId);
-          useAudioStore.getState().setIsLoading(false);
-        });
+        }
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.error(LOG_PREFIX, "tunnel fetch failed", err);
+        const message = err instanceof CobaltApiError ? err.message : "Couldn't load YouTube audio";
+        toast.error(message);
+        const current = useAudioStore.getState().source;
+        if (current?.type === "youtube" && current.videoId === videoId) {
+          useAudioStore.getState().setSource(null);
+        }
+      } finally {
+        if (inFlight.get(videoId) === controller) inFlight.delete(videoId);
+        if (inFlight.size === 0) useAudioStore.getState().setIsLoading(false);
+      }
     };
 
     const initial = useAudioStore.getState().source;
-    if (initial?.type === "youtube" && !initial.tunnelUrl) {
+    if (initial?.type === "youtube" && !initial.file) {
       handleSourceChange(initial.videoId);
     }
 
-    return useAudioStore.subscribe((state, prev) => {
+    const unsubscribe = useAudioStore.subscribe((state, prev) => {
       if (state.source === prev.source) return;
+
+      if (prev.source?.type === "youtube") {
+        const stillNeeded = state.source?.type === "youtube" && state.source.videoId === prev.source.videoId;
+        if (!stillNeeded) {
+          const controller = inFlight.get(prev.source.videoId);
+          if (controller) controller.abort();
+        }
+      }
+
       if (state.source?.type !== "youtube") return;
-      if (state.source.tunnelUrl) return;
+      if (state.source.file) return;
       handleSourceChange(state.source.videoId);
     });
+
+    return () => {
+      unsubscribe();
+      for (const controller of inFlight.values()) controller.abort();
+      inFlight.clear();
+    };
   }, []);
 }
 

@@ -1,4 +1,4 @@
-import { IconBrandYoutube, IconClock, IconFile, IconMusic } from "@tabler/icons-react";
+import { IconBrandYoutube, IconClock, IconFile, IconLoader2, IconMusic } from "@tabler/icons-react";
 import { useCallback } from "react";
 import { FileDropZone } from "@/audio/file-drop-zone";
 import { YouTubeUrlInput } from "@/audio/youtube-url-input";
@@ -60,6 +60,7 @@ const ReplaceControls: React.FC<ReplaceControlsProps> = ({ onFileDrop }) => (
 const ImportPanel: React.FC = () => {
   const source = useAudioStore((s) => s.source);
   const duration = useAudioStore((s) => s.duration);
+  const isLoading = useAudioStore((s) => s.isLoading);
   const setSource = useAudioStore((s) => s.setSource);
   const setMetadata = useProjectStore((s) => s.setMetadata);
   const projectTitle = useProjectStore((s) => s.metadata.title);
@@ -115,6 +116,7 @@ const ImportPanel: React.FC = () => {
   if (source && source.type === "youtube") {
     const videoId = source.videoId;
     const displayTitle = projectTitle && projectTitle !== videoId ? projectTitle : videoId;
+    const downloading = isLoading && !source.file;
 
     return (
       <div data-tour="import-dropzone" className="flex flex-col-reverse flex-1 size-full">
@@ -132,14 +134,25 @@ const ImportPanel: React.FC = () => {
           >
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate text-composer-text select-text">{displayTitle}</p>
-              <p className="text-xs text-composer-text-muted select-text">{videoId} ・ from YouTube</p>
+              <p className="text-xs text-composer-text-muted select-text">
+                {videoId} ・ {downloading ? "Downloading from YouTube" : "from YouTube"}
+              </p>
             </div>
 
             <div className="flex items-center gap-1.5">
-              <IconClock size={14} className="text-composer-text opacity-50" />
-              <span className="text-sm font-mono text-composer-text tabular-nums select-text">
-                {formatDuration(duration)}
-              </span>
+              {downloading ? (
+                <>
+                  <IconLoader2 size={14} className="animate-spin text-composer-accent" />
+                  <span className="text-sm font-mono text-composer-text-muted tabular-nums">--:--</span>
+                </>
+              ) : (
+                <>
+                  <IconClock size={14} className="text-composer-text opacity-50" />
+                  <span className="text-sm font-mono text-composer-text tabular-nums select-text">
+                    {formatDuration(duration)}
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>

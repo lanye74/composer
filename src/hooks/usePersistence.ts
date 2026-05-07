@@ -21,6 +21,13 @@ function toSavedAudioSource(source: AudioSource): SavedAudioSource | undefined {
   return undefined;
 }
 
+function playableFile(source: AudioSource): File | null {
+  if (!source) return null;
+  if (source.type === "file") return source.file;
+  if (source.type === "youtube") return source.file ?? null;
+  return null;
+}
+
 // -- Hook ---------------------------------------------------------------------
 
 function usePersistence(): void {
@@ -41,7 +48,7 @@ function usePersistence(): void {
 
       const savedSource = project?.audioSource;
       if (savedSource?.kind === "youtube") {
-        useAudioStore.getState().setYouTubeSource(savedSource.videoId);
+        useAudioStore.getState().setYouTubeSource(savedSource.videoId, file);
       } else if (file) {
         useAudioStore.getState().setSource({ type: "file", file });
       }
@@ -67,11 +74,14 @@ function usePersistence(): void {
       const previous = prevSource;
       prevSource = state.source;
 
-      if (state.source?.type === "file") {
-        saveAudioFile(state.source.file).catch((err) => console.error("[Persistence] Audio save failed:", err));
+      const nextFile = playableFile(state.source);
+      const prevFile = playableFile(previous);
+
+      if (nextFile && nextFile !== prevFile) {
+        saveAudioFile(nextFile).catch((err) => console.error("[Persistence] Audio save failed:", err));
         return;
       }
-      if (previous?.type === "file") {
+      if (!nextFile && prevFile) {
         clearAudioFile().catch((err) => console.error("[Persistence] Audio clear failed:", err));
       }
     });

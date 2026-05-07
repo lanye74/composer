@@ -5,7 +5,7 @@ import { create } from "zustand";
 
 type AudioSource =
   | { type: "file"; file: File }
-  | { type: "youtube"; videoId: string; tunnelUrl?: string; tunnelExpiresAt?: number }
+  | { type: "youtube"; videoId: string; file?: File }
   | null;
 
 interface AudioState {
@@ -22,8 +22,8 @@ interface AudioState {
 
 interface AudioActions {
   setSource: (source: AudioSource) => void;
-  setYouTubeSource: (videoId: string, tunnelUrl?: string, tunnelExpiresAt?: number) => void;
-  setYouTubeTunnel: (tunnelUrl: string, tunnelExpiresAt: number) => void;
+  setYouTubeSource: (videoId: string, file?: File) => void;
+  setYouTubeFile: (file: File) => void;
   setIsPlaying: (isPlaying: boolean) => void;
   setCurrentTime: (time: number) => void;
   setDuration: (duration: number) => void;
@@ -61,18 +61,18 @@ const useAudioStore = create<AudioState & AudioActions>((set, get) => ({
   ...INITIAL_STATE,
 
   setSource: (source) => set({ source, currentTime: 0, duration: 0, isPlaying: false }),
-  setYouTubeSource: (videoId, tunnelUrl, tunnelExpiresAt) =>
+  setYouTubeSource: (videoId, file) =>
     set({
-      source: { type: "youtube", videoId, tunnelUrl, tunnelExpiresAt },
+      source: { type: "youtube", videoId, file },
       currentTime: 0,
       duration: 0,
       isPlaying: false,
     }),
-  setYouTubeTunnel: (tunnelUrl, tunnelExpiresAt) =>
+  setYouTubeFile: (file) =>
     set((s) => {
       if (!s.source || s.source.type !== "youtube") return {};
       return {
-        source: { ...s.source, tunnelUrl, tunnelExpiresAt },
+        source: { ...s.source, file },
       };
     }),
   setIsPlaying: (isPlaying) => set({ isPlaying }),
