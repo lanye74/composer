@@ -210,17 +210,16 @@ const AgentManager: React.FC = () => {
   const agents = useProjectStore((s) => s.agents);
   const removeAgent = useProjectStore((s) => s.removeAgent);
   const lines = useProjectStore((s) => s.lines);
-  const setLines = useProjectStore((s) => s.setLines);
+  const setLinesWithHistory = useProjectStore((s) => s.setLinesWithHistory);
 
   const handleRemoveAgent = useCallback(
     (agentId: string) => {
-      // Reassign lines with this agent to the first agent
       const fallbackId = agents.find((a) => a.id !== agentId)?.id ?? "v1";
       const updatedLines = lines.map((line) => (line.agentId === agentId ? { ...line, agentId: fallbackId } : line));
-      setLines(updatedLines);
+      setLinesWithHistory(updatedLines);
       removeAgent(agentId);
     },
-    [agents, lines, setLines, removeAgent],
+    [agents, lines, setLinesWithHistory, removeAgent],
   );
 
   return (

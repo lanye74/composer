@@ -291,12 +291,9 @@ const EditPanel: React.FC = () => {
   const bracketCount = useMemo(() => parsed.filter((p) => p.hasBrackets).length, [parsed]);
   const nonEmptyCount = useMemo(() => parsed.filter((p) => !p.isEmpty).length, [parsed]);
 
-  const handleAgentChange = useCallback(
-    (lineId: string, agentId: string) => {
-      updateLine(lineId, { agentId });
-    },
-    [updateLine],
-  );
+  const handleAgentChange = useCallback((lineId: string, agentId: string) => {
+    useProjectStore.getState().updateLineWithHistory(lineId, { agentId });
+  }, []);
 
   const handleBackgroundChange = useCallback(
     (lineId: string, text: string) => {
@@ -358,14 +355,14 @@ const EditPanel: React.FC = () => {
 
   const handleBulkAgentChange = useCallback(
     (agentId: string) => {
-      const selectedLineIds = parsed.filter((p) => selectedLines.has(p.lineNumber) && p.lineId).map((p) => p.lineId);
-
-      const updatedLines = lines.map((line) => (selectedLineIds.includes(line.id) ? { ...line, agentId } : line));
-      linesSetByUs.current = updatedLines;
-      setLines(updatedLines);
+      const selectedLineIds = new Set(
+        parsed.filter((p) => selectedLines.has(p.lineNumber) && p.lineId).map((p) => p.lineId),
+      );
+      const updates = [...selectedLineIds].map((id) => ({ id: id as string, updates: { agentId } }));
+      useProjectStore.getState().updateLinesWithHistory(updates);
       setSelectedLines(new Set());
     },
-    [parsed, selectedLines, lines, setLines],
+    [parsed, selectedLines],
   );
 
   const handleClearSelection = useCallback(() => {

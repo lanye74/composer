@@ -301,16 +301,18 @@ function useSyncHandlers({
   const handleTap = granularity === "word" ? handleTapWord : handleTapLine;
 
   const handleReset = useCallback(() => {
-    for (const line of lines) {
-      updateLine(line.id, {
+    const updates = lines.map((line) => ({
+      id: line.id,
+      updates: {
         words: undefined,
         begin: undefined,
         end: undefined,
         backgroundWords: undefined,
-      });
-    }
+      },
+    }));
+    useProjectStore.getState().updateLinesWithHistory(updates);
     setSyncState({ position: { lineIndex: 0, wordIndex: 0 }, isActive: false });
-  }, [lines, updateLine, setSyncState]);
+  }, [lines, setSyncState]);
 
   const handleStartSync = useCallback(() => {
     setSyncState({ position: { lineIndex: 0, wordIndex: 0 }, isActive: true });

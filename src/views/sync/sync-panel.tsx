@@ -33,7 +33,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const SyncPanel: React.FC = () => {
   const lines = useProjectStore((s) => s.lines);
-  const setLines = useProjectStore((s) => s.setLines);
+  const setLinesWithHistory = useProjectStore((s) => s.setLinesWithHistory);
   const undo = useProjectStore((s) => s.undo);
   const redo = useProjectStore((s) => s.redo);
   const activeTab = useProjectStore((s) => s.activeTab);
@@ -160,12 +160,12 @@ const SyncPanel: React.FC = () => {
 
       if (newGranularity === "word" && hasLineTiming(lines)) {
         const convertedLines = lines.map((line) => convertLineToWord(line));
-        setLines(convertedLines);
+        setLinesWithHistory(convertedLines);
       }
 
       setGranularity(newGranularity);
     },
-    [granularity, lines, setLines, setGranularity],
+    [granularity, lines, setLinesWithHistory, setGranularity],
   );
 
   const playingLineIndex = useMemo(() => {
