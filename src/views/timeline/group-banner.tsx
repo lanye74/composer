@@ -3,7 +3,7 @@ import { cn } from "@/utils/cn";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import { getWordsInInstance } from "@/views/timeline/utils";
 import { IconChevronDown, IconChevronRight, IconLink } from "@tabler/icons-react";
-import { memo, useCallback } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 
 // -- Types ---------------------------------------------------------------------
 
@@ -22,6 +22,7 @@ interface GroupBannerProps {
 
 const BANNER_VERTICAL_INSET = 4;
 const BANNER_MIN_WIDTH = 80;
+const DRAG_THRESHOLD_PX = 3;
 
 // -- Component -----------------------------------------------------------------
 
@@ -39,17 +40,64 @@ const GroupBannerComponent: React.FC<GroupBannerProps> = ({
   const isPinging = pingingGroupId === group.id;
   const setSelectedWords = useTimelineStore((s) => s.setSelectedWords);
 
-  const handleClick = useCallback(
-    (e: React.MouseEvent) => {
+  const [dragOffsetPx, setDragOffsetPx] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStateRef = useRef<{ startX: number; moved: boolean; cleanup: () => void } | null>(null);
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
       e.stopPropagation();
-      const lines = useProjectStore.getState().lines;
-      setSelectedWords(getWordsInInstance(lines, group.id, instanceIdx));
+      const startX = e.clientX;
+
+      const handleMove = (moveEvent: PointerEvent) => {
+        const dx = moveEvent.clientX - startX;
+        if (!dragStateRef.current) return;
+        if (!dragStateRef.current.moved && Math.abs(dx) >= DRAG_THRESHOLD_PX) {
+          dragStateRef.current.moved = true;
+          setIsDragging(true);
+        }
+        if (dragStateRef.current.moved) {
+          setDragOffsetPx(dx);
+        }
+      };
+
+      const handleUp = (upEvent: PointerEvent) => {
+        const wasDrag = dragStateRef.current?.moved ?? false;
+        const dx = upEvent.clientX - startX;
+        const cleanup = dragStateRef.current?.cleanup;
+        dragStateRef.current = null;
+        cleanup?.();
+        setIsDragging(false);
+        setDragOffsetPx(0);
+
+        if (wasDrag && useProjectStore.getState().groups.find((g) => g.id === group.id)) {
+          const deltaSeconds = dx / zoom;
+          if (Math.abs(deltaSeconds) > 0.001) {
+            useProjectStore.getState().shiftInstance(group.id, instanceIdx, deltaSeconds);
+          }
+        } else {
+          // treat as click: select all instance words
+          const lines = useProjectStore.getState().lines;
+          setSelectedWords(getWordsInInstance(lines, group.id, instanceIdx));
+        }
+      };
+
+      const cleanup = () => {
+        document.removeEventListener("pointermove", handleMove);
+        document.removeEventListener("pointerup", handleUp);
+      };
+
+      dragStateRef.current = { startX, moved: false, cleanup };
+      document.addEventListener("pointermove", handleMove);
+      document.addEventListener("pointerup", handleUp);
     },
-    [group.id, instanceIdx, setSelectedWords],
+    [group.id, instanceIdx, setSelectedWords, zoom],
   );
 
   const left = Math.max(0, instanceStart * zoom - scrollLeft);
   const width = Math.max(BANNER_MIN_WIDTH, (instanceEnd - instanceStart) * zoom);
+  const deltaSecondsLive = dragOffsetPx / Math.max(zoom, 1);
 
   return (
     <div
@@ -63,7 +111,7 @@ const GroupBannerComponent: React.FC<GroupBannerProps> = ({
         "transition-[box-shadow,background] duration-150",
         isPinging && "ring-2 ring-offset-0",
       )}
-      onClick={handleClick}
+      onPointerDown={handlePointerDown}
       style={{
         left,
         width,
@@ -71,6 +119,8 @@ const GroupBannerComponent: React.FC<GroupBannerProps> = ({
         bottom: BANNER_VERTICAL_INSET,
         background: `color-mix(in srgb, ${group.color} 18%, transparent)`,
         borderColor: `color-mix(in srgb, ${group.color} 60%, transparent)`,
+        transform: isDragging ? `translateX(${dragOffsetPx}px)` : undefined,
+        cursor: isDragging ? "grabbing" : "grab",
         ["--ring-color" as string]: group.color,
       }}
     >
@@ -88,6 +138,9 @@ const GroupBannerComponent: React.FC<GroupBannerProps> = ({
       <span className="flex items-center gap-1 text-composer-text-muted tabular-nums whitespace-nowrap ml-auto">
         <IconLink className="w-2.5 h-2.5" />
         {instanceIdx + 1} of {totalInstances}
+        {isDragging && (
+          <span className="ml-1 text-composer-text">{deltaSecondsLive >= 0 ? "+" : ""}{deltaSecondsLive.toFixed(1)}s</span>
+        )}
       </span>
       {isCollapsed && (
         <span
