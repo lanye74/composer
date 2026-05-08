@@ -71,6 +71,9 @@ function generateTTML({ metadata, agents, lines, groups, granularity, minify = f
     if (!timing) continue;
 
     const agentAttr = line.agentId ? ` ttm:agent="${escapeXml(line.agentId)}"` : "";
+    const groupAttr = line.groupId
+      ? ` composer:groupId="${escapeXml(line.groupId)}" composer:instanceIdx="${line.instanceIdx ?? 0}" composer:templateLineIdx="${line.templateLineIdx ?? 0}"${line.detached ? ' composer:detached="true"' : ""}`
+      : "";
     let content = "";
 
     if (granularity === "word" && line.words?.length) {
@@ -100,7 +103,7 @@ function generateTTML({ metadata, agents, lines, groups, granularity, minify = f
     }
 
     parts.push(
-      `${ind(3)}<p begin="${formatTime(timing.begin)}" end="${formatTime(timing.end)}"${agentAttr}>${content}</p>`,
+      `${ind(3)}<p begin="${formatTime(timing.begin)}" end="${formatTime(timing.end)}"${agentAttr}${groupAttr}>${content}</p>`,
     );
   }
 
