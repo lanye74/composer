@@ -23,6 +23,11 @@ interface SettingsState {
   showShortcutHints: boolean;
   showSyllableIndicators: boolean;
   splitCharacter: string;
+
+  confirmReplaceProjectFromHash: boolean;
+  confirmReplaceLyrics: boolean;
+  confirmResetSettings: boolean;
+  confirmResetShortcuts: boolean;
 }
 
 interface SettingsActions {
@@ -51,6 +56,11 @@ const DEFAULTS: SettingsState = {
   showShortcutHints: true,
   showSyllableIndicators: true,
   splitCharacter: "|",
+
+  confirmReplaceProjectFromHash: true,
+  confirmReplaceLyrics: true,
+  confirmResetSettings: true,
+  confirmResetShortcuts: true,
 };
 
 // -- Store --------------------------------------------------------------------
