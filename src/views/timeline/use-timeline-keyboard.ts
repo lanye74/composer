@@ -3,6 +3,7 @@ import { type LyricLine, useProjectStore } from "@/stores/project";
 import { useSettingsStore } from "@/stores/settings";
 import { convertLineToWord } from "@/utils/sync-helpers";
 import { findMatchingShortcut } from "@/utils/shortcut-matcher";
+import { createGroupFromSelection, instanceToTemplate } from "@/views/timeline/group-ops";
 import { GUTTER_WIDTH, type WordSelection, useTimelineStore } from "@/views/timeline/timeline-store";
 import { useTimelineClipboard } from "@/views/timeline/use-timeline-clipboard";
 import { findWordAtTime, getLineTiming, isLineSynced } from "@/views/timeline/utils";
@@ -389,6 +390,61 @@ function useTimelineKeyboard(
         case "timeline.expandAll": {
           e.preventDefault();
           window.dispatchEvent(new CustomEvent("timeline:expand-all"));
+          break;
+        }
+        case "timeline.createGroup": {
+          e.preventDefault();
+          const { selectedWords } = useTimelineStore.getState();
+          const selectedLineIds = new Set(selectedWords.map((w) => w.lineId));
+          if (selectedLineIds.size === 0) {
+            toast.error("Select lines to group");
+            break;
+          }
+          const projectState = useProjectStore.getState();
+          const result = createGroupFromSelection(
+            projectState.lines,
+            selectedLineIds,
+            projectState.groups,
+          );
+          if (!result) {
+            toast.error("Selection must be contiguous and not part of an existing group");
+            break;
+          }
+          projectState.setLinesWithHistory(result.updatedLines);
+          projectState.addGroup(result.group);
+          toast.success(`Grouped ${selectedLineIds.size} line${selectedLineIds.size === 1 ? "" : "s"}`);
+          break;
+        }
+        case "timeline.duplicateAsLinked": {
+          e.preventDefault();
+          const { selectedWords } = useTimelineStore.getState();
+          const projectState = useProjectStore.getState();
+
+          // Identify a single (groupId, instanceIdx) covered by the selection
+          const groupKeys = new Set<string>();
+          for (const w of selectedWords) {
+            const line = projectState.lines.find((l) => l.id === w.lineId);
+            if (line?.groupId !== undefined && line.instanceIdx !== undefined) {
+              groupKeys.add(`${line.groupId}:${line.instanceIdx}`);
+            }
+          }
+          if (groupKeys.size !== 1) {
+            toast.error("Select all words of one linked instance to duplicate");
+            break;
+          }
+          const [groupKey] = groupKeys;
+          const [groupId, instanceIdxStr] = groupKey.split(":");
+          const sourceInstanceIdx = parseInt(instanceIdxStr, 10);
+
+          const audioEl = useAudioStore.getState().audioElement;
+          const playheadTime = audioEl?.currentTime ?? useAudioStore.getState().currentTime;
+          const template = instanceToTemplate(projectState.lines, groupId, sourceInstanceIdx);
+          if (template.length === 0) {
+            toast.error("Could not derive instance template");
+            break;
+          }
+          projectState.addInstance(groupId, template, playheadTime);
+          toast.success("Linked instance added at playhead");
           break;
         }
       }
