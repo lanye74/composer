@@ -496,8 +496,7 @@ function useTimelineKeyboard(
             toast.error("Could not create group from this selection");
             break;
           }
-          projectState.setLinesWithHistory(result.updatedLines);
-          projectState.addGroup(result.group);
+          projectState.addGroupWithLines(result.group, result.updatedLines);
           const totalCount = filled.expanded.size;
           const noun = totalCount === 1 ? "line" : "lines";
           toast.success(

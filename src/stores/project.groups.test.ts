@@ -114,6 +114,29 @@ describe("project store · group registry mutators", () => {
     expect(useProjectStore.getState().groups).toHaveLength(0);
   });
 
+  it("addGroupWithLines undoes group + lines in a single step (no residue)", () => {
+    useProjectStore.setState({
+      lines: [
+        { id: "l1", text: "a", agentId: "v1" },
+        { id: "l2", text: "b", agentId: "v1" },
+      ],
+    });
+
+    useProjectStore.getState().addGroupWithLines(seedGroup("g1"), [
+      { id: "l1", text: "a", agentId: "v1", groupId: "g1", instanceIdx: 0, templateLineIdx: 0 },
+      { id: "l2", text: "b", agentId: "v1", groupId: "g1", instanceIdx: 0, templateLineIdx: 1 },
+    ]);
+
+    expect(useProjectStore.getState().groups).toHaveLength(1);
+    expect(useProjectStore.getState().lines[0].groupId).toBe("g1");
+
+    useProjectStore.getState().undo();
+
+    expect(useProjectStore.getState().groups).toHaveLength(0);
+    expect(useProjectStore.getState().lines[0].groupId).toBeUndefined();
+    expect(useProjectStore.getState().lines[1].groupId).toBeUndefined();
+  });
+
   it("updateGroup merges fields", () => {
     useProjectStore.getState().addGroup(seedGroup("g1"));
     useProjectStore.getState().updateGroup("g1", { label: "Refrain", color: "#60a5fa" });

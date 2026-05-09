@@ -113,6 +113,7 @@ interface ProjectActions {
   moveWordFromBg: (lineId: string, wordIndices: number[], timeDelta: number, duration: number) => void;
   setGroups: (groups: LinkGroup[]) => void;
   addGroup: (group: LinkGroup) => void;
+  addGroupWithLines: (group: LinkGroup, lines: LyricLine[]) => void;
   updateGroup: (id: string, updates: Partial<LinkGroup>) => void;
   removeGroup: (id: string) => void;
   addInstance: (groupId: string, structure: LineTemplate[], instanceStart: number, insertAtIndex?: number) => void;
@@ -476,6 +477,9 @@ const useProjectStore = create<ProjectState & ProjectActions>((set, get) => ({
   setGroups: (groups) => set({ groups: Array.isArray(groups) ? groups : [], isDirty: true }),
 
   addGroup: (group) => set((state) => commitHistory(state, { groups: [...state.groups, group] })),
+
+  addGroupWithLines: (group, lines) =>
+    set((state) => commitHistory(state, { groups: [...state.groups, group], lines })),
 
   updateGroup: (id, updates) =>
     set((state) =>

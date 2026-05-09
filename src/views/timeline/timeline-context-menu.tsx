@@ -252,8 +252,7 @@ const TimelineContextMenu: React.FC = () => {
   const handleCreateGroupFromSelection = useCallback(() => {
     if (!groupableSelection) return;
     const projectState = useProjectStore.getState();
-    projectState.setLinesWithHistory(groupableSelection.result.updatedLines);
-    projectState.addGroup(groupableSelection.result.group);
+    projectState.addGroupWithLines(groupableSelection.result.group, groupableSelection.result.updatedLines);
     toast.success(`Grouped ${groupableSelection.count} line${groupableSelection.count === 1 ? "" : "s"}`);
     clearContextMenu();
   }, [groupableSelection, clearContextMenu]);
