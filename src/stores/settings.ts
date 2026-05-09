@@ -143,7 +143,20 @@ function getActiveCobaltInstance(): CobaltInstance {
   return found ?? BUILTIN_COBALT_INSTANCE;
 }
 
+function isUsingDefaultCobaltInstance(): boolean {
+  const state = useSettingsStore.getState();
+  if (state.selectedCobaltInstanceId === DEFAULT_COBALT_INSTANCE_ID) return true;
+  return !state.cobaltInstances.some((i) => i.id === state.selectedCobaltInstanceId);
+}
+
 // -- Exports ------------------------------------------------------------------
 
-export { useSettingsStore, DEFAULTS, BUILTIN_COBALT_INSTANCE, DEFAULT_COBALT_INSTANCE_ID, getActiveCobaltInstance };
+export {
+  useSettingsStore,
+  DEFAULTS,
+  BUILTIN_COBALT_INSTANCE,
+  DEFAULT_COBALT_INSTANCE_ID,
+  getActiveCobaltInstance,
+  isUsingDefaultCobaltInstance,
+};
 export type { SettingsState, CobaltInstance };

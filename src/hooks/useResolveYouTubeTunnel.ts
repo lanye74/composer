@@ -3,7 +3,8 @@ import { toast } from "sonner";
 import { useEnsureAuth } from "@/hooks/useEnsureAuth";
 import { useAudioStore } from "@/stores/audio";
 import { useProjectStore } from "@/stores/project";
-import { CobaltApiError, getAudio } from "@/utils/cobalt-api";
+import { getActiveCobaltInstance, isUsingDefaultCobaltInstance } from "@/stores/settings";
+import { CobaltApiError, formatCobaltErrorForToast, getAudio, getAudioFromStandardCobalt } from "@/utils/cobalt-api";
 
 // -- Constants ----------------------------------------------------------------
 
@@ -38,15 +39,22 @@ function useResolveYouTubeTunnel(): void {
       useAudioStore.getState().setIsLoading(true);
 
       try {
-        const jwt = await ensureRef.current();
-        if (controller.signal.aborted) return;
-        const { tunnelUrl, filename } = await getAudio(videoId, jwt);
+        let tunnelUrl: string;
+        let filename: string | undefined;
+        if (isUsingDefaultCobaltInstance()) {
+          const jwt = await ensureRef.current();
+          if (controller.signal.aborted) return;
+          ({ tunnelUrl, filename } = await getAudio(videoId, jwt));
+        } else {
+          ({ tunnelUrl, filename } = await getAudioFromStandardCobalt(videoId));
+        }
         if (controller.signal.aborted) return;
 
         const res = await fetch(tunnelUrl, { signal: controller.signal });
         if (!res.ok) throw new CobaltApiError("cobalt_failed", res.status);
         const buffer = await res.arrayBuffer();
         if (controller.signal.aborted) return;
+        if (buffer.byteLength === 0) throw new CobaltApiError("empty_audio", res.status);
 
         const current = useAudioStore.getState().source;
         if (current?.type !== "youtube" || current.videoId !== videoId) return;
@@ -65,7 +73,11 @@ function useResolveYouTubeTunnel(): void {
         if (controller.signal.aborted) return;
         if (err instanceof DOMException && err.name === "AbortError") return;
         console.error(LOG_PREFIX, "tunnel fetch failed", err);
-        const message = err instanceof CobaltApiError ? err.message : "Couldn't load YouTube audio";
+        const instance = getActiveCobaltInstance();
+        const message = formatCobaltErrorForToast(err, {
+          isDefault: isUsingDefaultCobaltInstance(),
+          instanceLabel: instance.label,
+        });
         toast.error(message);
         const current = useAudioStore.getState().source;
         if (current?.type === "youtube" && current.videoId === videoId) {
