@@ -109,4 +109,42 @@ describe("confirm-store", () => {
     expect(await p).toBe(false);
     expect(useSettingsStore.getState().confirmGroupDissolution).toBe(true);
   });
+
+  it("drains consecutive auto-skip queued entries without opening any of them as a modal", async () => {
+    const p1 = useConfirmStore.getState().open({ title: "live" });
+    const p2 = useConfirmStore.getState().open({ title: "auto-1", settingsKey: "confirmGroupDissolution" });
+    const p3 = useConfirmStore.getState().open({ title: "auto-2", settingsKey: "confirmGroupDissolution" });
+    const p4 = useConfirmStore.getState().open({ title: "auto-3", settingsKey: "confirmGroupDissolution" });
+
+    useSettingsStore.setState({ confirmGroupDissolution: false });
+
+    useConfirmStore.getState().resolveAndClose(true, false);
+
+    expect(await p1).toBe(true);
+    expect(await p2).toBe(true);
+    expect(await p3).toBe(true);
+    expect(await p4).toBe(true);
+    expect(useConfirmStore.getState().isOpen).toBe(false);
+    expect(useConfirmStore.getState().queue).toHaveLength(0);
+  });
+
+  it("drains a mix of auto-skip and live entries, opening only the live ones", async () => {
+    const p1 = useConfirmStore.getState().open({ title: "live-1" });
+    const p2 = useConfirmStore.getState().open({ title: "auto-a", settingsKey: "confirmGroupDissolution" });
+    const p3 = useConfirmStore.getState().open({ title: "auto-b", settingsKey: "confirmGroupDissolution" });
+    const p4 = useConfirmStore.getState().open({ title: "live-2" });
+
+    useSettingsStore.setState({ confirmGroupDissolution: false });
+
+    useConfirmStore.getState().resolveAndClose(true, false);
+    expect(await p1).toBe(true);
+    expect(await p2).toBe(true);
+    expect(await p3).toBe(true);
+    expect(useConfirmStore.getState().isOpen).toBe(true);
+    expect(useConfirmStore.getState().options?.title).toBe("live-2");
+
+    useConfirmStore.getState().resolveAndClose(false, false);
+    expect(await p4).toBe(false);
+    expect(useConfirmStore.getState().isOpen).toBe(false);
+  });
 });

@@ -55,39 +55,32 @@ const useConfirmStore = create<ConfirmStore>((set, get) => ({
   },
 
   resolveAndClose: (value, dontAskAgain) => {
-    const { options, resolve, queue } = get();
+    const { options, resolve } = get();
     if (value && dontAskAgain && options?.settingsKey) {
       useSettingsStore.getState().set(options.settingsKey, false);
     }
     resolve?.(value);
-    if (queue.length > 0) {
-      const [next, ...rest] = queue;
-      // Apply the same auto-skip rule for the next queued entry. If its
-      // settings key is now false, resolve true immediately and continue
-      // draining the queue rather than opening.
-      if (next.options.settingsKey && useSettingsStore.getState()[next.options.settingsKey] === false) {
-        next.resolve(true);
-        set({ isOpen: false, options: null, resolve: null, queue: rest });
-        // Re-trigger drain by re-invoking resolveAndClose with the next entry's
-        // shape isn't safe (it would mutate state again). Instead, recursively
-        // call ourselves via a microtask so we drain consecutive auto-skips.
-        if (rest.length > 0) {
-          queueMicrotask(() => {
-            const state = useConfirmStore.getState();
-            if (!state.isOpen && state.queue.length > 0) {
-              const [n, ...r] = state.queue;
-              useConfirmStore.setState({ isOpen: true, options: n.options, resolve: n.resolve, queue: r });
-            }
-          });
-        }
-        return;
-      }
-      set({ isOpen: true, options: next.options, resolve: next.resolve, queue: rest });
-    } else {
-      set({ isOpen: false, options: null, resolve: null });
-    }
+    drainQueue(set, get);
   },
 }));
+
+function drainQueue(set: ConfirmSet, get: () => ConfirmStore) {
+  let queue = get().queue;
+  while (queue.length > 0) {
+    const [next, ...rest] = queue;
+    const settingsKey = next.options.settingsKey;
+    if (settingsKey && useSettingsStore.getState()[settingsKey] === false) {
+      next.resolve(true);
+      queue = rest;
+      continue;
+    }
+    set({ isOpen: true, options: next.options, resolve: next.resolve, queue: rest });
+    return;
+  }
+  set({ isOpen: false, options: null, resolve: null, queue: [] });
+}
+
+type ConfirmSet = (partial: Partial<ConfirmStore> | ((state: ConfirmStore) => Partial<ConfirmStore>)) => void;
 
 function useConfirm(): (options: ConfirmOptions) => Promise<boolean> {
   return useConfirmStore.getState().open;
