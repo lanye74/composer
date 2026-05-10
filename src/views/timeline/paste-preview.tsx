@@ -10,7 +10,7 @@ import type { ClipboardData } from "@/views/timeline/selection-types";
 import { findMatchingTemplate } from "@/views/timeline/structural-match";
 import { GUTTER_WIDTH, useTimelineStore } from "@/views/timeline/timeline-store";
 import { computeRowLayout, type RowLayout } from "@/views/timeline/utils";
-import { type RefObject, useCallback, useEffect, useState } from "react";
+import { type RefObject, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 // -- Types ---------------------------------------------------------------------
@@ -212,21 +212,33 @@ const PastePreview: React.FC<PastePreviewProps> = ({ clipboard, scrollContainerR
   );
 
   const modalCount = useModalStackStore((s) => s.count);
+
+  // Reactive subscriptions BEFORE the early returns so the layout memo can run
+  // every render. Mousemove updates mousePos but does not invalidate the layout
+  // memo dependencies, so the layout stays stable across cursor moves.
+  const zoom = useTimelineStore((s) => s.zoom);
+  const rowHeights = useTimelineStore((s) => s.rowHeights);
+  const defaultRowHeight = useTimelineStore((s) => s.defaultRowHeight);
+  const collapsedInstances = useTimelineStore((s) => s.collapsedInstances);
+  const lines = useProjectStore((s) => s.lines);
+  const duration = useAudioStore((s) => s.duration);
+
+  const layout = useMemo(
+    () =>
+      computeRowLayout({
+        lines,
+        rowHeights,
+        defaultRowHeight,
+        collapsedInstances,
+        waveformHeight: ROWS_START_Y,
+        bgDropZoneHeight: BG_DROP_ZONE_HEIGHT,
+        groupHeaderHeight: GROUP_HEADER_HEIGHT,
+      }),
+    [lines, rowHeights, defaultRowHeight, collapsedInstances],
+  );
+
   const container = scrollContainerRef.current;
   if (!container || !mousePos || modalCount > 0) return null;
-
-  const { zoom, rowHeights, defaultRowHeight, collapsedInstances } = useTimelineStore.getState();
-  const lines = useProjectStore.getState().lines;
-  const duration = useAudioStore.getState().duration;
-  const layout = computeRowLayout({
-    lines,
-    rowHeights,
-    defaultRowHeight,
-    collapsedInstances,
-    waveformHeight: ROWS_START_Y,
-    bgDropZoneHeight: BG_DROP_ZONE_HEIGHT,
-    groupHeaderHeight: GROUP_HEADER_HEIGHT,
-  });
 
   const containerRect = container.getBoundingClientRect();
   const cursorTime = (mousePos.clientX - containerRect.left - GUTTER_WIDTH + container.scrollLeft) / zoom;
