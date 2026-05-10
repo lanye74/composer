@@ -190,6 +190,25 @@ const EditSection: React.FC = () => {
           reassigned in bulk.
         </p>
       </div>
+
+      <div>
+        <h4 className={HEADING}>Editing grouped lines</h4>
+        <p className={PROSE}>
+          Lines that belong to a linked group show a thin colored stripe on their left edge, matching the group color.
+          Hover one to see which group it belongs to and how many other instances are linked.
+        </p>
+        <p className={`${PROSE} mt-2`}>
+          Edits you make to a grouped line's text, agent, or background vocals fan out to every other instance of the
+          same template line. Word-level timings survive when the new text has the same word count: existing word slots
+          keep their begin/end and just swap text. If the word count changes, sibling timings clear so you can re-sync
+          them in the Sync view.
+        </p>
+        <p className={`${PROSE} mt-2`}>
+          Adding or removing rows inside a grouped instance pops a confirmation: that one instance detaches from the
+          group so the structural change can land, while every sibling instance stays linked. Decline to revert. Edits
+          to non-grouped lines never prompt.
+        </p>
+      </div>
     </div>
   );
 };
@@ -653,7 +672,8 @@ const GroupsSection: React.FC = () => (
       <ul className={`${PROSE} list-disc pl-4 space-y-1`}>
         <li>
           <strong>Edit view</strong>: a colored divider with the group name and instance count appears before each
-          instance, plus a thin closing line at the end.
+          instance, plus a thin closing line at the end. Each grouped line also gets a left-edge stripe in the group
+          color and a hover tooltip showing the link count.
         </li>
         <li>
           <strong>Sync view</strong>: the gutter cell shows a chain icon and an instance counter so you know which
