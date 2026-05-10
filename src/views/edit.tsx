@@ -5,15 +5,11 @@ import { Button } from "@/ui/button";
 import { Popover } from "@/ui/popover";
 import { Scroll } from "@/ui/scroll";
 import { type ParseResult, parseLyricsFile } from "@/utils/lyrics-parsers";
-import { remapWordTextsPreservingTiming, textToLyricLines } from "@/utils/lyrics-text";
+import { remapWordTextsPreservingTiming } from "@/utils/lyrics-text";
 import { stripSplitCharacter } from "@/utils/split-character";
 import { AgentManager } from "@/views/edit/agent-manager";
-import {
-  detachInstancesFromLines,
-  diffEditTextChange,
-  findStructurallyImpactedInstances,
-  propagateContentUpdates,
-} from "@/views/edit/diff-edit-text";
+import { decideEditTextAction } from "@/views/edit/decide-edit-text-action";
+import { detachInstancesFromLines } from "@/views/edit/diff-edit-text";
 import { IconAlertTriangle, IconFileImport, IconMicrophone, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
@@ -295,6 +291,7 @@ const EditPanel: React.FC = () => {
 
   const [rawText, setRawText] = useState(() => (lines.length > 0 ? lines.map((l) => l.text).join("\n") : ""));
   const linesSetByUs = useRef<LyricLine[] | null>(null);
+  const modalPendingRef = useRef(false);
   const [importResult, setImportResult] = useState<{
     result: ParseResult;
     filename: string;
@@ -408,59 +405,56 @@ const EditPanel: React.FC = () => {
   const handleTextChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const text = e.target.value;
-      setRawText(text);
-      setImportResult(null);
+      const action = decideEditTextAction({
+        text,
+        defaultAgentId,
+        lines,
+        groups,
+        modalPending: modalPendingRef.current,
+      });
 
-      const lyricLines = textToLyricLines(text, defaultAgentId, lines);
-      const diff = diffEditTextChange(lines, lyricLines);
+      if (action.kind === "ignore-modal-pending") return;
 
-      if (diff.hasStructuralChange) {
-        const impacted = findStructurallyImpactedInstances(lines, lyricLines);
-        if (impacted.length > 0) {
-          const labels = Array.from(
-            new Set(impacted.map((i) => groups.find((g) => g.id === i.groupId)?.label).filter(Boolean) as string[]),
-          );
-          const labelText =
-            labels.length === 0
-              ? `${impacted.length} instance${impacted.length === 1 ? "" : "s"}`
-              : labels.length === 1
-                ? `[${labels[0]}]`
-                : labels.map((l) => `[${l}]`).join(", ");
+      if (action.kind === "needs-confirm") {
+        modalPendingRef.current = true;
+        const labelText =
+          action.labels.length === 0
+            ? `${action.impacted.length} instance${action.impacted.length === 1 ? "" : "s"}`
+            : action.labels.length === 1
+              ? `[${action.labels[0]}]`
+              : action.labels.map((l) => `[${l}]`).join(", ");
 
-          confirm({
-            title: `Detach ${labelText} to apply this edit?`,
-            description: `Adding or removing rows inside ${
-              labels.length === 1 ? `the ${labelText} group` : "these groups"
-            } will detach ${impacted.length === 1 ? "this instance" : "these instances"} from the link. Other instances stay linked.`,
-            confirmLabel: "Detach and apply",
-            variant: "destructive",
-            recoverable: true,
-          }).then((ok) => {
-            if (ok) {
-              const detached = detachInstancesFromLines(lyricLines, impacted);
-              const remainingGroupIds = new Set(detached.map((l) => l.groupId).filter(Boolean) as string[]);
-              const nextGroups = groups.filter((g) => remainingGroupIds.has(g.id));
-              linesSetByUs.current = detached;
-              setLines(detached);
-              if (nextGroups.length !== groups.length) {
-                useProjectStore.getState().setGroups(nextGroups);
-              }
-            } else {
-              setRawText(lines.length > 0 ? lines.map((l) => l.text).join("\n") : "");
-            }
-          });
-          return;
-        }
-
-        linesSetByUs.current = lyricLines;
-        setLines(lyricLines);
+        confirm({
+          title: `Detach ${labelText} to apply this edit?`,
+          description: `Adding or removing rows inside ${
+            action.labels.length === 1 ? `the ${labelText} group` : "these groups"
+          } will detach ${action.impacted.length === 1 ? "this instance" : "these instances"} from the link. Other instances stay linked.`,
+          confirmLabel: "Detach and apply",
+          variant: "destructive",
+          recoverable: true,
+        }).then((ok) => {
+          modalPendingRef.current = false;
+          if (!ok) return;
+          const detached = detachInstancesFromLines(action.lyricLines, action.impacted);
+          const remainingGroupIds = new Set(detached.map((l) => l.groupId).filter(Boolean) as string[]);
+          const nextGroups = groups.filter((g) => remainingGroupIds.has(g.id));
+          linesSetByUs.current = detached;
+          setLines(detached);
+          if (nextGroups.length !== groups.length) {
+            useProjectStore.getState().setGroups(nextGroups);
+          }
+          setRawText(detached.map((l) => l.text).join("\n"));
+        });
         return;
       }
 
-      const finalLines =
-        diff.contentUpdates.length === 0 ? lyricLines : propagateContentUpdates(lines, lyricLines, diff.contentUpdates);
-      linesSetByUs.current = finalLines;
-      setLines(finalLines);
+      setRawText(text);
+      setImportResult(null);
+
+      if (action.kind === "noop") return;
+
+      linesSetByUs.current = action.finalLines;
+      setLines(action.finalLines);
     },
     [confirm, defaultAgentId, groups, lines, setLines],
   );
