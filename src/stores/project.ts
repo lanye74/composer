@@ -89,6 +89,11 @@ interface ProjectState {
   history: HistoryEntry[];
   historyIndex: number;
   dismissedSuggestions: string[];
+  // True when state.lines or state.groups has changed since the last history
+  // entry was written (e.g., per-keystroke setLines from the Edit textarea).
+  // The next history-aware mutator snapshots this state into history first
+  // so undo lands on the pending edit instead of skipping past it.
+  isDirtySinceHistory: boolean;
 }
 
 interface ProjectActions {
@@ -187,6 +192,7 @@ function createInitialState(): ProjectState {
     history: [],
     historyIndex: -1,
     dismissedSuggestions: [],
+    isDirtySinceHistory: false,
   };
 }
 
@@ -203,12 +209,12 @@ const useProjectStore = create<ProjectState & ProjectActions>((set, get) => ({
       isDirty: true,
     })),
 
-  setLines: (lines) => set({ lines, isDirty: true }),
+  setLines: (lines) => set({ lines, isDirty: true, isDirtySinceHistory: true }),
 
   setLinesWithHistory: (lines) =>
     set((state) => {
       const newHistory = state.history.slice(0, state.historyIndex + 1);
-      if (newHistory.length === 0) {
+      if (newHistory.length === 0 || state.isDirtySinceHistory) {
         newHistory.push({
           lines: structuredClone(state.lines),
           groups: structuredClone(state.groups),
@@ -226,6 +232,7 @@ const useProjectStore = create<ProjectState & ProjectActions>((set, get) => ({
       return {
         lines,
         isDirty: true,
+        isDirtySinceHistory: false,
         history: newHistory,
         historyIndex: newHistory.length - 1,
       };
@@ -235,12 +242,13 @@ const useProjectStore = create<ProjectState & ProjectActions>((set, get) => ({
     set((state) => ({
       lines: state.lines.map((line) => (line.id === id ? { ...line, ...updates } : line)),
       isDirty: true,
+      isDirtySinceHistory: true,
     })),
 
   updateLineWithHistory: (id, updates) =>
     set((state) => {
       const newHistory = state.history.slice(0, state.historyIndex + 1);
-      if (newHistory.length === 0) {
+      if (newHistory.length === 0 || state.isDirtySinceHistory) {
         newHistory.push({
           lines: structuredClone(state.lines),
           groups: structuredClone(state.groups),
@@ -300,6 +308,7 @@ const useProjectStore = create<ProjectState & ProjectActions>((set, get) => ({
       return {
         lines: newLines,
         isDirty: true,
+        isDirtySinceHistory: false,
         history: newHistory,
         historyIndex: newHistory.length - 1,
       };
@@ -308,7 +317,7 @@ const useProjectStore = create<ProjectState & ProjectActions>((set, get) => ({
   updateLinesWithHistory: (updates) =>
     set((state) => {
       const newHistory = state.history.slice(0, state.historyIndex + 1);
-      if (newHistory.length === 0) {
+      if (newHistory.length === 0 || state.isDirtySinceHistory) {
         newHistory.push({
           lines: structuredClone(state.lines),
           groups: structuredClone(state.groups),
@@ -360,6 +369,7 @@ const useProjectStore = create<ProjectState & ProjectActions>((set, get) => ({
       return {
         lines: newLines,
         isDirty: true,
+        isDirtySinceHistory: false,
         history: newHistory,
         historyIndex: newHistory.length - 1,
       };
@@ -412,6 +422,7 @@ const useProjectStore = create<ProjectState & ProjectActions>((set, get) => ({
         groups: structuredClone(entry.groups),
         historyIndex: state.historyIndex - 1,
         isDirty: true,
+        isDirtySinceHistory: false,
       };
     }),
 
@@ -424,6 +435,7 @@ const useProjectStore = create<ProjectState & ProjectActions>((set, get) => ({
         groups: structuredClone(entry.groups),
         historyIndex: state.historyIndex + 1,
         isDirty: true,
+        isDirtySinceHistory: false,
       };
     }),
 
@@ -491,7 +503,7 @@ const useProjectStore = create<ProjectState & ProjectActions>((set, get) => ({
       return commitHistory(state, { lines: newLines });
     }),
 
-  setGroups: (groups) => set({ groups: Array.isArray(groups) ? groups : [], isDirty: true }),
+  setGroups: (groups) => set({ groups: Array.isArray(groups) ? groups : [], isDirty: true, isDirtySinceHistory: true }),
 
   addGroup: (group) => set((state) => commitHistory(state, { groups: [...state.groups, group] })),
 
@@ -875,7 +887,7 @@ function commitHistory(state: ProjectState, changes: { lines?: LyricLine[]; grou
   const nextGroups = changes.groups ?? state.groups;
 
   const newHistory = state.history.slice(0, state.historyIndex + 1);
-  if (newHistory.length === 0) {
+  if (newHistory.length === 0 || state.isDirtySinceHistory) {
     newHistory.push({
       lines: structuredClone(state.lines),
       groups: structuredClone(state.groups),
@@ -892,6 +904,7 @@ function commitHistory(state: ProjectState, changes: { lines?: LyricLine[]; grou
     lines: nextLines,
     groups: nextGroups,
     isDirty: true,
+    isDirtySinceHistory: false,
     history: newHistory,
     historyIndex: newHistory.length - 1,
   };

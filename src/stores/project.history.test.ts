@@ -47,6 +47,36 @@ describe("updateLinesWithHistory", () => {
     expect(useProjectStore.getState().lines.map((l) => l.agentId)).toEqual(["v2", "v1", "v3"]);
   });
 
+  it("snapshots a pending non-history edit before a subsequent history-aware update so undo lands on the typed state", () => {
+    // Reproduces issue #33 follow-up: typing in Edit (uses setLines, no
+    // history) followed by clicking Place (updateLineWithHistory) used to
+    // make Cmd+Z drop the user back past their typing.
+    useProjectStore.getState().setLines([seedLine("a", { text: "" })]);
+    useProjectStore.getState().setLinesWithHistory([seedLine("a", { text: "" })]);
+
+    useProjectStore.getState().setLines([seedLine("a", { text: "our favorite song is on" })]);
+    expect(useProjectStore.getState().lines[0].text).toBe("our favorite song is on");
+
+    useProjectStore.getState().updateLineWithHistory("a", { begin: 5, end: 7 });
+    const placed = useProjectStore.getState().lines[0];
+    expect(placed.text).toBe("our favorite song is on");
+    expect(placed.begin).toBe(5);
+
+    useProjectStore.getState().undo();
+    const afterUndo = useProjectStore.getState().lines[0];
+    expect(afterUndo.text).toBe("our favorite song is on");
+    expect(afterUndo.begin).toBeUndefined();
+  });
+
+  it("snapshots pending edit before updateLinesWithHistory too", () => {
+    useProjectStore.getState().setLinesWithHistory([seedLine("a", { text: "alpha" })]);
+    useProjectStore.getState().setLines([seedLine("a", { text: "alpha edited" })]);
+    useProjectStore.getState().updateLinesWithHistory([{ id: "a", updates: { begin: 1, end: 2 } }]);
+    useProjectStore.getState().undo();
+    expect(useProjectStore.getState().lines[0].text).toBe("alpha edited");
+    expect(useProjectStore.getState().lines[0].begin).toBeUndefined();
+  });
+
   it("clears words/begin/end via undefined updates and is undoable", () => {
     useProjectStore.getState().setLines([
       seedLine("a", {
