@@ -10,6 +10,9 @@ import { toast } from "sonner";
 interface DriftSample {
   performanceTime: number;
   audioTime: number;
+  wallElapsedSinceSessionStart: number;
+  audioElapsedSinceSessionStart: number;
+  wallDriftMs: number;
   contextTime: number;
   contextOutputTime: number;
   contextOutputPerformanceTime: number;
@@ -65,6 +68,9 @@ interface LiveMetrics {
   driftMs: number;
   driftRateMsPerMin: number;
   maxDriftMs: number;
+  wallDriftMs: number;
+  wallDriftRateMsPerMin: number;
+  maxWallDriftMs: number;
   sampleCount: number;
   baseLatency: number;
   outputLatency: number;
@@ -79,7 +85,7 @@ interface NavigatorWithExtras extends Navigator {
 
 const SAMPLE_INTERVAL_MS = 100;
 const LOG_PREFIX = "[DriftDiagnostic]";
-const REPORT_VERSION = 1;
+const REPORT_VERSION = 2;
 
 const INITIAL_METRICS: LiveMetrics = {
   audioTime: 0,
@@ -87,6 +93,9 @@ const INITIAL_METRICS: LiveMetrics = {
   driftMs: 0,
   driftRateMsPerMin: 0,
   maxDriftMs: 0,
+  wallDriftMs: 0,
+  wallDriftRateMsPerMin: 0,
+  maxWallDriftMs: 0,
   sampleCount: 0,
   baseLatency: 0,
   outputLatency: 0,
@@ -106,6 +115,7 @@ const AudioDriftDiagnostic: React.FC = () => {
   const sessionsRef = useRef<DriftSession[]>([]);
   const activeSessionRef = useRef<DriftSession | null>(null);
   const maxDriftRef = useRef(0);
+  const maxWallDriftRef = useRef(0);
 
   useEffect(() => {
     if (!audioElement) return;
@@ -147,19 +157,6 @@ const AudioDriftDiagnostic: React.FC = () => {
         // getOutputTimestamp unsupported (older safari)
       }
 
-      const sample: DriftSample = {
-        performanceTime,
-        audioTime,
-        contextTime,
-        contextOutputTime,
-        contextOutputPerformanceTime,
-        playbackRate: audio.playbackRate,
-        readyState: audio.readyState,
-        networkState: audio.networkState,
-        seeking: audio.seeking,
-        paused: audio.paused,
-      };
-
       if (!activeSessionRef.current) {
         const newSession: DriftSession = {
           startedAt: new Date().toISOString(),
@@ -173,20 +170,44 @@ const AudioDriftDiagnostic: React.FC = () => {
         sessionsRef.current.push(newSession);
         activeSessionRef.current = newSession;
         maxDriftRef.current = 0;
+        maxWallDriftRef.current = 0;
       }
 
       const session = activeSessionRef.current;
-      session.samples.push(sample);
-
       const audioElapsed = audioTime - session.startedAtAudio;
       const contextElapsed = contextTime - session.startedAtContext;
+      const wallElapsed = (performanceTime - session.startedAtPerformance) / 1000;
+
       const driftSeconds = audioElapsed - contextElapsed;
       const driftMs = driftSeconds * 1000;
       const absDriftMs = Math.abs(driftMs);
       if (absDriftMs > maxDriftRef.current) maxDriftRef.current = absDriftMs;
 
-      const elapsedMinutes = contextElapsed / 60;
+      const wallDriftSeconds = audioElapsed - wallElapsed;
+      const wallDriftMs = wallDriftSeconds * 1000;
+      const absWallDriftMs = Math.abs(wallDriftMs);
+      if (absWallDriftMs > maxWallDriftRef.current) maxWallDriftRef.current = absWallDriftMs;
+
+      const sample: DriftSample = {
+        performanceTime,
+        audioTime,
+        wallElapsedSinceSessionStart: wallElapsed,
+        audioElapsedSinceSessionStart: audioElapsed,
+        wallDriftMs,
+        contextTime,
+        contextOutputTime,
+        contextOutputPerformanceTime,
+        playbackRate: audio.playbackRate,
+        readyState: audio.readyState,
+        networkState: audio.networkState,
+        seeking: audio.seeking,
+        paused: audio.paused,
+      };
+      session.samples.push(sample);
+
+      const elapsedMinutes = wallElapsed / 60;
       const driftRateMsPerMin = elapsedMinutes > 0.05 ? driftMs / elapsedMinutes : 0;
+      const wallDriftRateMsPerMin = elapsedMinutes > 0.05 ? wallDriftMs / elapsedMinutes : 0;
 
       setMetrics({
         audioTime,
@@ -194,6 +215,9 @@ const AudioDriftDiagnostic: React.FC = () => {
         driftMs,
         driftRateMsPerMin,
         maxDriftMs: maxDriftRef.current,
+        wallDriftMs,
+        wallDriftRateMsPerMin,
+        maxWallDriftMs: maxWallDriftRef.current,
         sampleCount: session.samples.length,
         baseLatency: audioCtx.baseLatency ?? 0,
         outputLatency: audioCtx.outputLatency ?? 0,
@@ -289,6 +313,7 @@ const AudioDriftDiagnostic: React.FC = () => {
     sessionsRef.current = [];
     activeSessionRef.current = null;
     maxDriftRef.current = 0;
+    maxWallDriftRef.current = 0;
     setMetrics(INITIAL_METRICS);
     toast.success("Cleared. Next play starts a fresh session.");
   }, []);
@@ -316,17 +341,27 @@ const AudioDriftDiagnostic: React.FC = () => {
             <DiagRow label="audio time" value={`${metrics.audioTime.toFixed(3)}s`} />
             <DiagRow label="context time" value={`${metrics.contextTime.toFixed(3)}s`} />
             <DiagRow
-              label="drift (audio - context)"
+              label="audio - wall drift"
+              value={`${metrics.wallDriftMs >= 0 ? "+" : ""}${metrics.wallDriftMs.toFixed(1)}ms`}
+              emphasis={Math.abs(metrics.wallDriftMs) > 50}
+            />
+            <DiagRow
+              label="audio - wall rate"
+              value={`${metrics.wallDriftRateMsPerMin >= 0 ? "+" : ""}${metrics.wallDriftRateMsPerMin.toFixed(1)}ms/min`}
+              emphasis={Math.abs(metrics.wallDriftRateMsPerMin) > 20}
+            />
+            <DiagRow
+              label="max |wall drift|"
+              value={`${metrics.maxWallDriftMs.toFixed(1)}ms`}
+              emphasis={metrics.maxWallDriftMs > 100}
+            />
+            <DiagRow
+              label="audio - context drift"
               value={`${metrics.driftMs >= 0 ? "+" : ""}${metrics.driftMs.toFixed(1)}ms`}
               emphasis={Math.abs(metrics.driftMs) > 50}
             />
             <DiagRow
-              label="drift rate"
-              value={`${metrics.driftRateMsPerMin >= 0 ? "+" : ""}${metrics.driftRateMsPerMin.toFixed(1)}ms/min`}
-              emphasis={Math.abs(metrics.driftRateMsPerMin) > 20}
-            />
-            <DiagRow
-              label="max abs drift"
+              label="max |context drift|"
               value={`${metrics.maxDriftMs.toFixed(1)}ms`}
               emphasis={metrics.maxDriftMs > 100}
             />
