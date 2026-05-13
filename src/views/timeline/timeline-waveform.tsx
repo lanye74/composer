@@ -8,12 +8,6 @@ import type WaveSurfer from "wavesurfer.js";
 
 const WAVEFORM_HEIGHT = 80;
 
-// -- Types --------------------------------------------------------------------
-
-interface WaveSurferWithRenderer {
-  renderer?: { renderProgress?: (progress: number, isPlaying?: boolean) => void };
-}
-
 // -- Component -----------------------------------------------------------------
 
 const TimelineWaveform: React.FC = () => {
@@ -33,27 +27,6 @@ const TimelineWaveform: React.FC = () => {
     if (!ws) return;
     ws.zoom(zoom);
   }, [ws, zoom]);
-
-  // Drive progress via RAF so the waveform fill tracks the playhead in real time
-  // instead of lagging behind on the audio element's 4Hz timeupdate cadence.
-  useEffect(() => {
-    if (!ws) return;
-    const renderer = (ws as unknown as WaveSurferWithRenderer).renderer;
-    if (!renderer?.renderProgress) return;
-
-    let raf = 0;
-    const tick = () => {
-      const audio = useAudioStore.getState().audioElement;
-      const dur = useAudioStore.getState().duration;
-      if (audio && dur > 0) {
-        const progress = Math.max(0, Math.min(1, audio.currentTime / dur));
-        renderer.renderProgress?.(progress, !audio.paused);
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [ws]);
 
   // Handle click to seek
   const handleClick = useCallback(
