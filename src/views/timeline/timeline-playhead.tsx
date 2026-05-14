@@ -37,6 +37,8 @@ const TimelinePlayhead: React.FC<TimelinePlayheadProps> = ({ containerHeight, sc
   const playheadCenterXLocalRef = useRef<number>(0);
   const containerLeftRef = useRef<number>(0);
   const wasFrozenRef = useRef<boolean>(false);
+  const frozenStartedAtRef = useRef<number | null>(null);
+  const wasVisualShowingRef = useRef<boolean>(false);
 
   // RAF loop - always runs, reads directly from audio element and stores
   useEffect(() => {
@@ -136,9 +138,15 @@ const TimelinePlayhead: React.FC<TimelinePlayheadProps> = ({ containerHeight, sc
       playheadRef.current.style.transition = isFrozen || justUnfrozen ? "none" : "transform 32ms linear";
       playheadRef.current.style.transform = `translate3d(${position}px, 0, 0)`;
 
-      if (isFrozen !== wasFrozenRef.current) {
-        playheadRef.current.classList.toggle("playhead-buffering", isFrozen);
-        if (isFrozen) {
+      if (isFrozen && !wasFrozenRef.current) frozenStartedAtRef.current = performance.now();
+      if (!isFrozen) frozenStartedAtRef.current = null;
+      wasFrozenRef.current = isFrozen;
+
+      const visualShouldShow =
+        isFrozen && frozenStartedAtRef.current !== null && performance.now() - frozenStartedAtRef.current > 100;
+      if (visualShouldShow !== wasVisualShowingRef.current) {
+        playheadRef.current.classList.toggle("playhead-buffering", visualShouldShow);
+        if (visualShouldShow) {
           playheadRef.current.style.backgroundImage =
             "repeating-linear-gradient(to bottom, rgb(129 140 248) 0 3px, transparent 3px 6px)";
           playheadRef.current.style.backgroundColor = "transparent";
@@ -146,7 +154,7 @@ const TimelinePlayhead: React.FC<TimelinePlayheadProps> = ({ containerHeight, sc
           playheadRef.current.style.backgroundImage = "";
           playheadRef.current.style.backgroundColor = "";
         }
-        wasFrozenRef.current = isFrozen;
+        wasVisualShowingRef.current = visualShouldShow;
       }
 
       // Update height to match full scrollable content

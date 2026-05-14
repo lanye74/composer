@@ -144,6 +144,7 @@ const TimelinePreviewSidebar: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const lastScrolledLineRef = useRef<number>(-1);
+  const frozenStartedAtRef = useRef<number | null>(null);
 
   // Animation loop - queries DOM directly on each frame for reliability
   useEffect(() => {
@@ -159,7 +160,11 @@ const TimelinePreviewSidebar: React.FC = () => {
       const { seekFreeze, seekFreezeTarget } = useAudioStore.getState();
       const isFrozen = seekFreeze && seekFreezeTarget !== null;
       const currentTime = isFrozen ? (seekFreezeTarget as number) : liveCurrentTime;
-      container.style.opacity = isFrozen ? "0.85" : "";
+      if (isFrozen && frozenStartedAtRef.current === null) frozenStartedAtRef.current = performance.now();
+      if (!isFrozen) frozenStartedAtRef.current = null;
+      const visualShouldShow =
+        isFrozen && frozenStartedAtRef.current !== null && performance.now() - frozenStartedAtRef.current > 100;
+      container.style.opacity = visualShouldShow ? "0.85" : "";
       let currentLineIdx = -1;
 
       const wordEls = container.querySelectorAll<HTMLElement>("[data-word-begin]");

@@ -122,8 +122,9 @@ const AudioEngine: React.FC = () => {
       rafId = requestAnimationFrame(tickRms);
     };
 
-    const handleSeeking = () => {
-      if (!analyserAvailable) return;
+    let pendingPostPauseFreeze = false;
+
+    const engageFreeze = () => {
       const store = useAudioStore.getState();
       store.setSeekFreezeTarget(audio.currentTime);
       store.setSeekFreeze(true);
@@ -135,13 +136,27 @@ const AudioEngine: React.FC = () => {
       }, FREEZE_SAFETY_MS);
     };
 
+    const handleSeeking = () => {
+      if (!analyserAvailable) return;
+      if (audio.paused) {
+        pendingPostPauseFreeze = true;
+        return;
+      }
+      engageFreeze();
+    };
+
     const handlePauseFreeze = () => {
+      pendingPostPauseFreeze = false;
       releaseFreeze();
     };
 
     const handlePlayResume = () => {
       const ctx = ctxRef.current;
       if (ctx && ctx.state === "suspended") ctx.resume().catch(() => undefined);
+      if (!analyserAvailable) return;
+      if (!pendingPostPauseFreeze) return;
+      pendingPostPauseFreeze = false;
+      engageFreeze();
     };
 
     const handleLoadedMetadata = () => setDuration(audio.duration);
