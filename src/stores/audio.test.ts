@@ -87,6 +87,37 @@ describe("useAudioStore - reset", () => {
   });
 });
 
+describe("useAudioStore - seekFreeze", () => {
+  it("defaults to inactive", () => {
+    const state = useAudioStore.getState();
+    expect(state.seekFreeze).toBe(false);
+    expect(state.seekFreezeTarget).toBeNull();
+  });
+
+  it("setSeekFreeze flips the flag", () => {
+    useAudioStore.getState().setSeekFreeze(true);
+    expect(useAudioStore.getState().seekFreeze).toBe(true);
+    useAudioStore.getState().setSeekFreeze(false);
+    expect(useAudioStore.getState().seekFreeze).toBe(false);
+  });
+
+  it("setSeekFreezeTarget stores a number or null", () => {
+    useAudioStore.getState().setSeekFreezeTarget(42.5);
+    expect(useAudioStore.getState().seekFreezeTarget).toBe(42.5);
+    useAudioStore.getState().setSeekFreezeTarget(null);
+    expect(useAudioStore.getState().seekFreezeTarget).toBeNull();
+  });
+
+  it("reset clears freeze state", () => {
+    useAudioStore.getState().setSeekFreeze(true);
+    useAudioStore.getState().setSeekFreezeTarget(10);
+    useAudioStore.getState().reset();
+    const state = useAudioStore.getState();
+    expect(state.seekFreeze).toBe(false);
+    expect(state.seekFreezeTarget).toBeNull();
+  });
+});
+
 describe("useAudioStore - seekTo", () => {
   it("ignores non-finite times", () => {
     useAudioStore.setState({ currentTime: 12 });

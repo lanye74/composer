@@ -155,7 +155,11 @@ const TimelinePreviewSidebar: React.FC = () => {
       }
 
       const audioEl = useAudioStore.getState().audioElement;
-      const currentTime = audioEl?.currentTime ?? useAudioStore.getState().currentTime;
+      const liveCurrentTime = audioEl?.currentTime ?? useAudioStore.getState().currentTime;
+      const { seekFreeze, seekFreezeTarget } = useAudioStore.getState();
+      const isFrozen = seekFreeze && seekFreezeTarget !== null;
+      const currentTime = isFrozen ? (seekFreezeTarget as number) : liveCurrentTime;
+      container.style.opacity = isFrozen ? "0.85" : "";
       let currentLineIdx = -1;
 
       const wordEls = container.querySelectorAll<HTMLElement>("[data-word-begin]");

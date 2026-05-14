@@ -36,6 +36,7 @@ const TimelinePlayhead: React.FC<TimelinePlayheadProps> = ({ containerHeight, sc
   const lastMaskRef = useRef<string>("");
   const playheadCenterXLocalRef = useRef<number>(0);
   const containerLeftRef = useRef<number>(0);
+  const wasFrozenRef = useRef<boolean>(false);
 
   // RAF loop - always runs, reads directly from audio element and stores
   useEffect(() => {
@@ -48,7 +49,10 @@ const TimelinePlayhead: React.FC<TimelinePlayheadProps> = ({ containerHeight, sc
       // Read directly from audio element for smooth updates
       const audioEl = useAudioStore.getState().audioElement;
       const isPlaying = useAudioStore.getState().isPlaying;
-      const currentTime = audioEl?.currentTime ?? useAudioStore.getState().currentTime;
+      const liveCurrentTime = audioEl?.currentTime ?? useAudioStore.getState().currentTime;
+      const { seekFreeze, seekFreezeTarget } = useAudioStore.getState();
+      const isFrozen = seekFreeze && seekFreezeTarget !== null;
+      const currentTime = isFrozen ? (seekFreezeTarget as number) : liveCurrentTime;
       const { zoom, scrollLeft, isDraggingPlayhead, dragTime, followEnabled } = useTimelineStore.getState();
 
       // Auto-scroll to keep playhead centered when follow is enabled
@@ -127,7 +131,23 @@ const TimelinePlayhead: React.FC<TimelinePlayheadProps> = ({ containerHeight, sc
       const displayTime = isDraggingPlayhead ? dragTime : currentTime;
       const actualScrollLeft = container?.scrollLeft ?? scrollLeft;
       const position = displayTime * zoom - actualScrollLeft + GUTTER_WIDTH - 1; // -1 to center the 2px wide playhead
+
+      const justUnfrozen = wasFrozenRef.current && !isFrozen;
+      playheadRef.current.style.transition = isFrozen || justUnfrozen ? "none" : "transform 32ms linear";
       playheadRef.current.style.transform = `translate3d(${position}px, 0, 0)`;
+
+      if (isFrozen !== wasFrozenRef.current) {
+        playheadRef.current.classList.toggle("animate-pulse", isFrozen);
+        if (isFrozen) {
+          playheadRef.current.style.backgroundImage =
+            "repeating-linear-gradient(to bottom, rgb(129 140 248) 0 3px, transparent 3px 6px)";
+          playheadRef.current.style.backgroundColor = "transparent";
+        } else {
+          playheadRef.current.style.backgroundImage = "";
+          playheadRef.current.style.backgroundColor = "";
+        }
+        wasFrozenRef.current = isFrozen;
+      }
 
       // Update height to match full scrollable content
       if (container) {

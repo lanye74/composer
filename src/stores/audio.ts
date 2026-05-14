@@ -15,6 +15,8 @@ interface AudioState {
   isMuted: boolean;
   isLoading: boolean;
   audioElement: HTMLAudioElement | null;
+  seekFreeze: boolean;
+  seekFreezeTarget: number | null;
 }
 
 interface AudioActions {
@@ -29,6 +31,8 @@ interface AudioActions {
   toggleMute: () => void;
   setIsLoading: (isLoading: boolean) => void;
   registerAudioElement: (element: HTMLAudioElement | null) => void;
+  setSeekFreeze: (value: boolean) => void;
+  setSeekFreezeTarget: (value: number | null) => void;
   seekTo: (time: number) => void;
   reset: () => void;
 }
@@ -47,6 +51,8 @@ function createInitialState(): AudioState {
     isMuted: false,
     isLoading: false,
     audioElement: null,
+    seekFreeze: false,
+    seekFreezeTarget: null,
   };
 }
 
@@ -80,6 +86,8 @@ const useAudioStore = create<AudioState & AudioActions>((set, get) => ({
   toggleMute: () => set((s) => ({ isMuted: !s.isMuted })),
   setIsLoading: (isLoading) => set({ isLoading }),
   registerAudioElement: (audioElement) => set({ audioElement }),
+  setSeekFreeze: (seekFreeze) => set({ seekFreeze }),
+  setSeekFreezeTarget: (seekFreezeTarget) => set({ seekFreezeTarget }),
   seekTo: (time: number) => {
     if (!Number.isFinite(time) || time < 0) return;
     const audio = get().audioElement;
