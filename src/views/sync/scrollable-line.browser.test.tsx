@@ -31,8 +31,8 @@ describe("ScrollableLine", () => {
     expect(screen.container.textContent).toContain("(echo)");
   });
 
-  it("renders nothing for a fully empty line", async () => {
+  it("renders only the line-number gutter when text is empty", async () => {
     const screen = await render(<ScrollableLine {...BASE_PROPS} text="" />);
-    expect(screen.container.textContent ?? "").not.toContain("Hello");
+    expect((screen.container.textContent ?? "").trim()).toBe(String(BASE_PROPS.lineNumber));
   });
 });

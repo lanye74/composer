@@ -70,7 +70,7 @@ describe("Slider", () => {
     expect(updates).toContain(100);
   });
 
-  it("steps by 10% on PageUp / PageDown", async () => {
+  it("steps up by 10% on PageUp", async () => {
     let value = 50;
     const screen = await render(
       <ControlledHarness initial={value} min={0} max={100} onChange={(v) => (value = v)} />,
@@ -79,7 +79,17 @@ describe("Slider", () => {
     slider.focus();
     slider.dispatchEvent(new KeyboardEvent("keydown", { key: "PageUp", bubbles: true }));
     expect(value).toBeCloseTo(60, 5);
+  });
+
+  it("steps down by 10% on PageDown", async () => {
+    let value = 50;
+    const screen = await render(
+      <ControlledHarness initial={value} min={0} max={100} onChange={(v) => (value = v)} />,
+    );
+    const slider = screen.getByRole("slider").element() as HTMLElement;
+    slider.focus();
     slider.dispatchEvent(new KeyboardEvent("keydown", { key: "PageDown", bubbles: true }));
+    expect(value).toBeCloseTo(40, 5);
   });
 
   it("clamps to min when decrementing past min", async () => {

@@ -4,7 +4,7 @@ import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { useProjectStore } from "@/stores/project";
 
 describe("useGlobalShortcuts", () => {
-  it("registers tab switching shortcuts (Mod+1 → import, Mod+2 → edit, etc.)", async () => {
+  it("switches to import on Mod+1", async () => {
     useProjectStore.setState({ activeTab: "preview" });
     const setActiveTab = (tab: string) => useProjectStore.setState({ activeTab: tab as never });
     await renderHook(() =>
@@ -14,10 +14,8 @@ describe("useGlobalShortcuts", () => {
         setSettingsOpen: () => {},
       }),
     );
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "1", metaKey: true, bubbles: true }));
-    window.dispatchEvent(new KeyboardEvent("keydown", { key: "1", ctrlKey: true, bubbles: true }));
-    const tab = useProjectStore.getState().activeTab;
-    expect(["import", "preview"]).toContain(tab);
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "1", metaKey: true, ctrlKey: true, bubbles: true }));
+    expect(useProjectStore.getState().activeTab).toBe("import");
   });
 
   it("opens help when the help shortcut is pressed", async () => {
@@ -32,6 +30,6 @@ describe("useGlobalShortcuts", () => {
       }),
     );
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "?", shiftKey: true, bubbles: true }));
-    expect(typeof helpOpen).toBe("boolean");
+    expect(helpOpen).toBe(true);
   });
 });

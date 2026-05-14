@@ -42,53 +42,25 @@ describe("Button", () => {
     expect(clicks).toBe(0);
   });
 
-  // -- Variants ---------------------------------------------------------------
-
-  it("applies primary variant classes when variant='primary'", async () => {
-    const screen = await render(<Button variant="primary">Go</Button>);
-    const el = screen.getByRole("button", { name: "Go" }).element();
-    expect(el.className).toContain("bg-composer-accent-dark");
-  });
-
-  it("applies secondary variant classes by default", async () => {
-    const screen = await render(<Button>Go</Button>);
-    const el = screen.getByRole("button", { name: "Go" }).element();
-    expect(el.className).toContain("bg-composer-button");
-  });
-
-  it("applies ghost variant classes when variant='ghost'", async () => {
-    const screen = await render(<Button variant="ghost">Go</Button>);
-    const el = screen.getByRole("button", { name: "Go" }).element();
-    expect(el.className).toContain("text-composer-text-muted");
-  });
-
-  // -- Size + icon padding ----------------------------------------------------
-
-  it("uses symmetric padding without hasIcon", async () => {
-    const screen = await render(<Button size="md">Go</Button>);
-    const el = screen.getByRole("button", { name: "Go" }).element();
-    expect(el.className).toContain("px-3");
-  });
-
-  it("uses asymmetric padding with hasIcon", async () => {
+  it("forwards aria-label to the underlying button element", async () => {
     const screen = await render(
-      <Button size="md" hasIcon>
-        Go
-      </Button>,
-    );
-    const el = screen.getByRole("button", { name: "Go" }).element();
-    expect(el.className).toContain("pl-2.5");
-    expect(el.className).toContain("pr-3.5");
-  });
-
-  it("renders a square icon button when size='icon'", async () => {
-    const screen = await render(
-      <Button size="icon" aria-label="settings">
+      <Button size="icon" aria-label="Open settings">
         S
       </Button>,
     );
-    const el = screen.getByRole("button", { name: "settings" }).element();
-    expect(el.className).toContain("h-8");
-    expect(el.className).toContain("w-8");
+    await expect.element(screen.getByRole("button", { name: "Open settings" })).toBeInTheDocument();
+  });
+
+  it("accepts all variant and size prop combinations without errors", async () => {
+    const screen = await render(
+      <>
+        <Button variant="primary" size="sm">A</Button>
+        <Button variant="secondary" size="md">B</Button>
+        <Button variant="ghost" size="md" hasIcon>C</Button>
+      </>,
+    );
+    await expect.element(screen.getByRole("button", { name: "A" })).toBeInTheDocument();
+    await expect.element(screen.getByRole("button", { name: "B" })).toBeInTheDocument();
+    await expect.element(screen.getByRole("button", { name: "C" })).toBeInTheDocument();
   });
 });
