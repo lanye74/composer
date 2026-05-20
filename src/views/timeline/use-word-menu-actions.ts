@@ -3,6 +3,7 @@ import { absorbDeletedSyllablesIntoNeighbors } from "@/domain/word/syllable-grou
 import { useAudioStore } from "@/stores/audio";
 import { useProjectStore } from "@/stores/project";
 import { useSettingsStore } from "@/stores/settings";
+import { mergeWordText } from "@/utils/word-merge";
 import { addTrailingSpaceIfMissing, findInsertionSlot, trimTrailingSpaceFromLast } from "@/utils/word-spaces";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import type { useContextMenuTargets } from "@/views/timeline/use-context-menu-targets";
@@ -39,6 +40,16 @@ function useWordMenuActions(targets: ContextMenuTargets, clearContextMenu: () =>
     clearContextMenu();
     // Dispatch a custom event so the syllable splitter can pick it up
     window.dispatchEvent(new CustomEvent("timeline:split-syllable"));
+  }, [contextMenu, clearContextMenu]);
+
+  const handleSplitWord = useCallback(() => {
+    if (!contextMenu || contextMenu.target.kind !== "word") return;
+    const { lineId, wordIndex, type } = contextMenu.target;
+    useTimelineStore.getState().setEditingWord(null);
+    const lineIndex = contextMenu.target.lineIndex;
+    useTimelineStore.getState().setSelectedWords([{ lineId, lineIndex, wordIndex, type }]);
+    clearContextMenu();
+    window.dispatchEvent(new CustomEvent("timeline:split-word"));
   }, [contextMenu, clearContextMenu]);
 
   const handleToggleExplicit = useCallback(() => {
@@ -128,7 +139,7 @@ function useWordMenuActions(targets: ContextMenuTargets, clearContextMenu: () =>
 
     const firstIdx = indices[0];
     const lastIdx = indices[indices.length - 1];
-    const mergedText = indices.map((idx) => wordsArray[idx].text).join("");
+    const mergedText = mergeWordText(indices.map((idx) => wordsArray[idx].text));
     const merged: WordTiming = {
       text: mergedText,
       begin: wordsArray[firstIdx].begin,
@@ -146,6 +157,7 @@ function useWordMenuActions(targets: ContextMenuTargets, clearContextMenu: () =>
   return {
     handleEditWord,
     handleSplitSyllables,
+    handleSplitWord,
     handleToggleExplicit,
     handleDeleteWord,
     handleAddWordHere,

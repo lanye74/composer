@@ -15,6 +15,7 @@ import { GROUP_HEADER_HEIGHT } from "@/views/timeline/group-header-row";
 import { createGroupFromSelection, fillSelectionGaps, instanceToTemplate } from "@/views/timeline/group-ops";
 import { scrollToInstanceHeader } from "@/views/timeline/scroll-helpers";
 import { splitLinesIntoWords } from "@/views/timeline/split-lines-into-words";
+import { mergeWordText } from "@/utils/word-merge";
 import type { WordSelection } from "@/domain/selection/model";
 import { GUTTER_WIDTH, useTimelineStore, WAVEFORM_HEIGHT } from "@/views/timeline/timeline-store";
 import { useTimelineClipboard } from "@/views/timeline/use-timeline-clipboard";
@@ -339,6 +340,9 @@ function useTimelineKeyboard(
           s.set("timelineSnap", !s.timelineSnap);
           break;
         }
+        case "timeline.toggleRollingEdit":
+          useTimelineStore.getState().toggleRollingEditMode();
+          break;
         case "timeline.setWordBegin":
           e.preventDefault();
           handleSetWordTiming("begin");
@@ -381,6 +385,14 @@ function useTimelineKeyboard(
           }
           break;
         }
+        case "timeline.splitWord": {
+          const { selectedWords: swSel } = useTimelineStore.getState();
+          if (swSel.length === 1) {
+            e.preventDefault();
+            window.dispatchEvent(new CustomEvent("timeline:split-word"));
+          }
+          break;
+        }
         case "timeline.mergeWords": {
           const { selectedWords: mSel } = useTimelineStore.getState();
           const run = contiguousSelectionRun(mSel);
@@ -389,18 +401,10 @@ function useTimelineKeyboard(
           if (!mLine) break;
           const mWords = run.type === "word" ? mLine.words : mLine.backgroundWords;
           if (!mWords) break;
-          let spaceFree = true;
-          for (let i = 0; i < run.indices.length - 1; i++) {
-            if (mWords[run.indices[i]].text.endsWith(" ")) {
-              spaceFree = false;
-              break;
-            }
-          }
-          if (!spaceFree) break;
           e.preventDefault();
           const firstIdx = run.indices[0];
           const lastIdx = run.indices[run.indices.length - 1];
-          const mergedText = run.indices.map((idx) => mWords[idx].text).join("");
+          const mergedText = mergeWordText(run.indices.map((idx) => mWords[idx].text));
           const merged = { text: mergedText, begin: mWords[firstIdx].begin, end: mWords[lastIdx].end };
           const updatedWords = [...mWords.slice(0, firstIdx), merged, ...mWords.slice(lastIdx + 1)];
           if (run.type === "word") {

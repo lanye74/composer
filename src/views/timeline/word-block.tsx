@@ -24,6 +24,8 @@ interface WordBlockProps {
   gapBefore?: boolean;
   leftHighlighted?: boolean;
   rightHighlighted?: boolean;
+  leftConjoined?: boolean;
+  rightConjoined?: boolean;
   onClick: (e: React.MouseEvent) => void;
   onResizeStart: (edge: "left" | "right", startX: number) => void;
   onEdgeHover?: (edge: "left" | "right", hovering: boolean) => void;
@@ -58,6 +60,8 @@ const WordBlock: React.FC<WordBlockProps> = ({
   gapBefore,
   leftHighlighted,
   rightHighlighted,
+  leftConjoined,
+  rightConjoined,
   onClick,
   onResizeStart,
   onEdgeHover,
@@ -157,7 +161,9 @@ const WordBlock: React.FC<WordBlockProps> = ({
         aria-hidden="true"
         className={cn(
           "absolute left-0 top-0 bottom-0 w-2 z-10 hover:bg-white/10",
-          syllablePosition === "middle" || syllablePosition === "last" ? "cursor-col-resize" : "cursor-ew-resize",
+          syllablePosition === "middle" || syllablePosition === "last" || leftConjoined
+            ? "cursor-col-resize"
+            : "cursor-ew-resize",
           leftHighlighted && "bg-white/10",
         )}
         onMouseDown={handleResizeStart}
@@ -175,7 +181,9 @@ const WordBlock: React.FC<WordBlockProps> = ({
         aria-hidden="true"
         className={cn(
           "absolute right-0 top-0 bottom-0 w-2 z-10 hover:bg-white/10",
-          syllablePosition === "first" || syllablePosition === "middle" ? "cursor-col-resize" : "cursor-ew-resize",
+          syllablePosition === "first" || syllablePosition === "middle" || rightConjoined
+            ? "cursor-col-resize"
+            : "cursor-ew-resize",
           rightHighlighted && "bg-white/10",
         )}
         onMouseDown={handleResizeStart}

@@ -28,12 +28,6 @@ describe("WordBlock", () => {
     expect(block.style.width).toBe("100px");
   });
 
-  it("widens minimum render width to 4px when natural width is sub-pixel", async () => {
-    const screen = await render(<WordBlock {...DEFAULT_PROPS} begin={0} end={0.02} />, { dndContext: true });
-    const block = screen.container.querySelector("[data-word-block]") as HTMLElement;
-    expect(block.style.width).toBe("4px");
-  });
-
   it("hides the text label when natural width is below the threshold (20px)", async () => {
     const screen = await render(<WordBlock {...DEFAULT_PROPS} begin={0} end={0.2} />, { dndContext: true });
     const block = screen.container.querySelector("[data-word-block]") as HTMLElement;
@@ -215,5 +209,25 @@ describe("WordBlock", () => {
     const screen = await render(<WordBlock {...DEFAULT_PROPS} syllablePosition="last" />, { dndContext: true });
     const block = screen.container.querySelector("[data-word-block]") as HTMLElement;
     expect(block.style.borderLeftWidth).toBe("0px");
+  });
+
+  it("shows cursor-col-resize on the left handle when leftConjoined is true", async () => {
+    const screen = await render(<WordBlock {...DEFAULT_PROPS} leftConjoined />, { dndContext: true });
+    const leftEdge = screen.container.querySelector('[data-edge="left"]') as HTMLElement;
+    expect(leftEdge.className).toContain("cursor-col-resize");
+    expect(leftEdge.className).not.toContain("cursor-ew-resize");
+  });
+
+  it("shows cursor-col-resize on the right handle when rightConjoined is true", async () => {
+    const screen = await render(<WordBlock {...DEFAULT_PROPS} rightConjoined />, { dndContext: true });
+    const rightEdge = screen.container.querySelector('[data-edge="right"]') as HTMLElement;
+    expect(rightEdge.className).toContain("cursor-col-resize");
+    expect(rightEdge.className).not.toContain("cursor-ew-resize");
+  });
+
+  it("keeps cursor-ew-resize on a plain boundary handle when not conjoined", async () => {
+    const screen = await render(<WordBlock {...DEFAULT_PROPS} />, { dndContext: true });
+    const leftEdge = screen.container.querySelector('[data-edge="left"]') as HTMLElement;
+    expect(leftEdge.className).toContain("cursor-ew-resize");
   });
 });

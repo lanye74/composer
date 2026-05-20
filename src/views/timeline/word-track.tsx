@@ -5,6 +5,7 @@ import { useProjectStore } from "@/stores/project";
 import { useSettingsStore } from "@/stores/settings";
 import { computeSyllableGroups, getSyllablePositions } from "@/domain/word/syllable-groups";
 import { addTrailingSpaceIfMissing, findInsertionSlot, trimTrailingSpaceFromLast } from "@/utils/word-spaces";
+import { resizeGestureSelfIds } from "@/views/timeline/resize-self-ids";
 import { selfKey } from "@/views/timeline/snap";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import { useSnapBypass } from "@/views/timeline/use-snap-bypass";
@@ -60,6 +61,7 @@ const WordTrack: React.FC<WordTrackProps> = ({
   const selectedWords = useTimelineStore((s) => s.selectedWords);
   const setSelectedWords = useTimelineStore((s) => s.setSelectedWords);
   const toggleSelection = useTimelineStore((s) => s.toggleSelection);
+  const rollingEditMode = useTimelineStore((s) => s.rollingEditMode);
 
   const showSyllableIndicators = useSettingsStore((s) => s.showSyllableIndicators);
   const syllablePositions = useMemo(() => getSyllablePositions(words), [words]);
@@ -104,11 +106,13 @@ const WordTrack: React.FC<WordTrackProps> = ({
       dragStateRef.current = initialState;
       setDragState(initialState);
 
+      const rollingEdit = useTimelineStore.getState().rollingEditMode;
+
       setResizing(true);
       lastPointerRef.current = { clientX: startX, clientY: 0 };
       conjoinedRef.current = { active: false, adjacentWordIndex: null };
       snap.beginGesture({
-        selfIds: new Set([selfKey(lineId, wordIndex, trackType)]),
+        selfIds: resizeGestureSelfIds(lineId, wordIndex, edge, words.length, trackType),
         leaderKey: selfKey(lineId, wordIndex, trackType),
         overlapCheck: (shift) => {
           const w = words[wordIndex];
@@ -139,7 +143,8 @@ const WordTrack: React.FC<WordTrackProps> = ({
         const originalWord = words[wordIndex];
         const rawDeltaPx = e.clientX - startX;
         const altHeld = e.altKey;
-        const conjoinedByDefault = isSyllableBoundary(wordIndex, edge) && !boundaryHasGap(wordIndex, edge);
+        const conjoinedByDefault =
+          (rollingEdit || isSyllableBoundary(wordIndex, edge)) && !boundaryHasGap(wordIndex, edge);
         const conjoined = altHeld ? !conjoinedByDefault : conjoinedByDefault;
 
         const adjacentWordIndex =
@@ -255,7 +260,7 @@ const WordTrack: React.FC<WordTrackProps> = ({
     const pos = syllablePositions[boundaryIndex];
     const isSyllable = pos === "first" || pos === "middle";
     const hasGap = words[boundaryIndex].end < words[boundaryIndex + 1].begin;
-    const conjoinedByDefault = isSyllable && !hasGap;
+    const conjoinedByDefault = (rollingEditMode || isSyllable) && !hasGap;
     return altPressed ? !conjoinedByDefault : conjoinedByDefault;
   };
 
@@ -335,7 +340,6 @@ const WordTrack: React.FC<WordTrackProps> = ({
   };
 
   const handleTrackDoubleClick = (e: React.MouseEvent) => {
-    if (useTimelineStore.getState().selectOnlyMode) return;
     if ((e.target as HTMLElement).closest("[data-word-block]")) return;
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -416,6 +420,8 @@ const WordTrack: React.FC<WordTrackProps> = ({
             gapBefore={gapBefore}
             leftHighlighted={hoveredBoundary === wordIndex - 1 && isBoundaryConjoined(wordIndex - 1)}
             rightHighlighted={hoveredBoundary === wordIndex && isBoundaryConjoined(wordIndex)}
+            leftConjoined={isBoundaryConjoined(wordIndex - 1)}
+            rightConjoined={isBoundaryConjoined(wordIndex)}
             onClick={(e) => handleSelect(wordIndex, e)}
             onResizeStart={(edge, startX) => handleResizeStart(wordIndex, edge, startX)}
             onEdgeHover={(edge, hovering) => handleEdgeHover(wordIndex, edge, hovering)}

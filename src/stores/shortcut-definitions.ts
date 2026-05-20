@@ -166,6 +166,12 @@ const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     defaultBinding: { key: "s" },
   },
   {
+    id: "timeline.splitWord",
+    scope: "timeline",
+    description: "Split word into words",
+    defaultBinding: { key: "s", shift: true },
+  },
+  {
     id: "timeline.mergeWords",
     scope: "timeline",
     description: "Merge words",
@@ -284,6 +290,12 @@ const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     scope: "timeline",
     description: "Toggle snap (magnet)",
     defaultBinding: { key: "t" },
+  },
+  {
+    id: "timeline.toggleRollingEdit",
+    scope: "timeline",
+    description: "Toggle rolling edit tool",
+    defaultBinding: { key: "r" },
   },
 ];
 
