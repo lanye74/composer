@@ -167,6 +167,46 @@ describe("generateForProject", () => {
     expect(lines.find((l) => l.id === "L3")?.romanization?.text).toBe("どけだ");
   });
 
+  it("emits a progress callback for each failed line", async () => {
+    const flakyGenerator: RomanizationGenerator = {
+      scheme: "ja-Latn-hepburn",
+      async generateLine(text: string) {
+        if (text.includes("X")) throw new Error("simulated failure");
+        return text.split("").reverse().join("");
+      },
+      async generateWords(words: WordTiming[]) {
+        return words.map((word) => ({ ...word, text: word.text.split("").reverse().join("") }));
+      },
+    };
+    clearGeneratorRegistry();
+    clearGeneratorCacheForTests();
+    registerGeneratorFactory("ja-Latn-hepburn", async () => flakyGenerator);
+    useProjectStore.getState().setLines([
+      { id: "L1", text: "夜だ", agentId: "v1" },
+      { id: "L2", text: "メモリーX", agentId: "v1" },
+      { id: "L3", text: "だけどX", agentId: "v1" },
+      { id: "L4", text: "メモリー", agentId: "v1" },
+    ]);
+
+    const progress: Array<{ done: number; total: number }> = [];
+    const result = await generateForProject({
+      scheme: "ja-Latn-hepburn",
+      onProgress: (done, total) => progress.push({ done, total }),
+    });
+
+    expect(result.total).toBe(4);
+    expect(result.done).toBe(2);
+    expect(result.errors.length).toBe(2);
+
+    const tickCalls = progress.filter((p) => p !== progress[0]);
+    expect(tickCalls.length).toBe(result.total);
+    expect(progress[progress.length - 1]).toEqual({ done: 2, total: 4 });
+    for (let i = 1; i < progress.length; i++) {
+      expect(progress[i].done).toBeGreaterThanOrEqual(progress[i - 1].done);
+      expect(progress[i].total).toBe(progress[0].total);
+    }
+  });
+
   it("aborts cleanly and restores the pre-run baseline", async () => {
     useProjectStore.getState().setLines([
       { id: "L1", text: "夜", agentId: "v1" },

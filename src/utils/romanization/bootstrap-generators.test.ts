@@ -76,9 +76,4 @@ describe("registerAllRomanizationGenerators", () => {
       expect(getGeneratorFactory(scheme.id)).toBeDefined();
     }
   });
-
-  it("does not load kuroshiro or pinyin-pro eagerly", () => {
-    registerAllRomanizationGenerators();
-    expect(true).toBe(true);
-  });
 });

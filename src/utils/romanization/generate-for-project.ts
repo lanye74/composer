@@ -89,6 +89,7 @@ async function generateForProject(options: GenerateForProjectOptions): Promise<G
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       errors.push({ lineId: line.id, message });
+      onProgress?.(done, total);
     }
   }
 
