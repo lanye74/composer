@@ -27,12 +27,13 @@ import { detachInstancesFromLines } from "@/views/edit/diff-edit-text";
 import { parseLyrics } from "@/views/edit/parse-lyrics";
 import type { ParsedLine } from "@/views/edit/parse-lyrics";
 import { RomanizationBanner, type RomanizationBannerProgress } from "@/views/edit/romanization-banner";
+import { RomanizationEditPopover } from "@/views/edit/romanization-edit-popover";
 import { RomanizationSubrow } from "@/views/edit/romanization-subrow";
 import {
   importParsedLyrics,
   type ImportParsedLyricsContext,
 } from "@/views/lyrics-import-modal/use-import-modal-actions";
-import { IconAlertTriangle, IconFileImport, IconMicrophone, IconX } from "@tabler/icons-react";
+import { IconAlertTriangle, IconFileImport, IconLanguage, IconMicrophone, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 // -- Constants ----------------------------------------------------------------
@@ -91,6 +92,7 @@ const LinePreview: React.FC<{
   groupColor?: string;
   groupTooltip?: string;
   schemeSet: boolean;
+  scheme: string | undefined;
   onSelect: (lineNumber: number, shiftKey: boolean) => void;
   onAgentChange: (lineId: string, agentId: string) => void;
   onBulkAgentChange: (agentId: string) => void;
@@ -107,6 +109,7 @@ const LinePreview: React.FC<{
   groupColor,
   groupTooltip,
   schemeSet,
+  scheme,
   onSelect,
   onAgentChange,
   onBulkAgentChange,
@@ -221,9 +224,19 @@ const LinePreview: React.FC<{
         {schemeSet && line.romanization && line.romanization.text.length > 0 && (
           <RomanizationSubrow text={line.romanization.text} />
         )}
-        {schemeSet && (!line.romanization || line.romanization.text.length === 0) && hasNonLatinScript(line.text) && (
-          <RomanizationSubrow ghost />
-        )}
+        {schemeSet &&
+          (!line.romanization || line.romanization.text.length === 0) &&
+          hasNonLatinScript(line.text) &&
+          line.lineId &&
+          scheme && (
+            <RomanizationEditPopover
+              lineId={line.lineId}
+              lineText={line.text}
+              romanizationText=""
+              scheme={scheme}
+              trigger={<RomanizationSubrow ghost />}
+            />
+          )}
       </div>
 
       <div className="flex items-center gap-1.5 ml-auto transition-opacity opacity-0 group-hover:opacity-100">
@@ -247,6 +260,24 @@ const LinePreview: React.FC<{
               </option>
             ))}
           </select>
+        )}
+
+        {schemeSet && scheme && line.lineId && hasNonLatinScript(line.text) && line.romanization && (
+          <RomanizationEditPopover
+            lineId={line.lineId}
+            lineText={line.text}
+            romanizationText={line.romanization.text}
+            scheme={scheme}
+            trigger={
+              <button
+                type="button"
+                aria-label="Edit romanization"
+                className="flex items-center justify-center size-5 rounded cursor-pointer bg-composer-button hover:bg-composer-button-hover text-composer-text-muted hover:text-composer-text"
+              >
+                <IconLanguage className="size-3" />
+              </button>
+            }
+          />
         )}
 
         {line.lineId && (
@@ -310,6 +341,7 @@ const EditPanel: React.FC = () => {
   const agents = useProjectStore((s) => s.agents);
   const lines = useProjectStore((s) => s.lines);
   const groups = useProjectStore((s) => s.groups);
+  const metadata = useProjectStore((s) => s.metadata);
   const activeTab = useProjectStore((s) => s.activeTab);
   const setLines = useProjectStore((s) => s.setLines);
   const confirm = useConfirm();
@@ -839,6 +871,7 @@ Or drag and drop a lyrics file (.txt, .lrc, .srt, .ttml)"
                         groupColor={group?.color}
                         groupTooltip={groupTooltip}
                         schemeSet={romanizationVisibility.schemeSet}
+                        scheme={metadata.romanizationScheme}
                         onSelect={handleLineSelect}
                         onAgentChange={handleAgentChange}
                         onBulkAgentChange={handleBulkAgentChange}
