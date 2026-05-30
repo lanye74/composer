@@ -4,6 +4,7 @@ import { useSettingsStore } from "@/stores/settings";
 import { computeSyllableGroups } from "@/domain/word/syllable-groups";
 import { stripSplitCharacter } from "@/utils/split-character";
 import { splitIntoWords } from "@/utils/sync-helpers";
+import { RomanizationReference } from "@/views/sync/romanization-reference";
 import { TimeNudgeInput } from "@/views/sync/time-nudge-input";
 import { WordRenderer, type WordHandlers } from "@/views/sync/word-renderer";
 import { IconLink } from "@tabler/icons-react";
@@ -45,6 +46,8 @@ interface ScrollableLineProps {
   onSetBgWordTime?: (wordIndex: number, newBegin: number) => void;
   onNudgeBgWordEnd?: (wordIndex: number, delta: number) => void;
   onSetBgWordEndTime?: (wordIndex: number, newEnd: number) => void;
+  romanizationScheme?: string;
+  romanizationText?: string;
 }
 
 // -- Component ----------------------------------------------------------------
@@ -76,6 +79,8 @@ const ScrollableLineInner: React.FC<ScrollableLineProps> = ({
   onSetBgWordTime,
   onNudgeBgWordEnd,
   onSetBgWordEndTime,
+  romanizationScheme,
+  romanizationText,
 }) => {
   const lineRef = useRef<HTMLDivElement>(null);
   const wordTexts = useMemo(() => (words?.length ? words.map((w) => w.text) : splitIntoWords(text)), [text, words]);
@@ -296,6 +301,9 @@ const ScrollableLineInner: React.FC<ScrollableLineProps> = ({
             {renderWordList(wordTexts, words, mainWordHandlers, mainSyllableGroups, "main")}
           </div>
         )}
+        {romanizationScheme && romanizationText && (
+          <RomanizationReference text={romanizationText} isCurrent={isCurrent} />
+        )}
         {bgWordTexts.length > 0 && (
           <div className="flex flex-wrap gap-x-3 gap-y-1 items-end">
             {renderWordList(bgWordTexts, backgroundWords, bgWordHandlers, bgSyllableGroups, "bg", true)}
@@ -322,7 +330,9 @@ const ScrollableLine = memo(ScrollableLineInner, (prev, next) => {
     prev.linkInfo?.color === next.linkInfo?.color &&
     prev.linkInfo?.label === next.linkInfo?.label &&
     prev.linkInfo?.instanceIdx === next.linkInfo?.instanceIdx &&
-    prev.linkInfo?.totalInstances === next.linkInfo?.totalInstances
+    prev.linkInfo?.totalInstances === next.linkInfo?.totalInstances &&
+    prev.romanizationScheme === next.romanizationScheme &&
+    prev.romanizationText === next.romanizationText
   );
 });
 

@@ -36,6 +36,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 const SyncPanel: React.FC = () => {
   const lines = useProjectStore((s) => s.lines);
   const groups = useProjectStore((s) => s.groups);
+  const romanizationScheme = useProjectStore((s) => s.metadata.romanizationScheme);
   const setLinesWithHistory = useProjectStore((s) => s.setLinesWithHistory);
   const undo = useProjectStore((s) => s.undo);
   const redo = useProjectStore((s) => s.redo);
@@ -473,6 +474,8 @@ const SyncPanel: React.FC = () => {
                   onSetBgWordTime={(wordIdx, newBegin) => handleSetBgWordTime(index, wordIdx, newBegin)}
                   onNudgeBgWordEnd={(wordIdx, delta) => handleNudgeBgWordEnd(index, wordIdx, delta)}
                   onSetBgWordEndTime={(wordIdx, newEnd) => handleSetBgWordEndTime(index, wordIdx, newEnd)}
+                  romanizationScheme={romanizationScheme}
+                  romanizationText={line.romanization?.text}
                 />
               );
             })}
