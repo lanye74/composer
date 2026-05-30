@@ -1,5 +1,11 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseTtml } from "@/utils/lyrics-parsers/ttml";
 import { describe, expect, it } from "vitest";
+
+const FIXTURES_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../../test/fixtures");
+const readFixture = (name: string): string => readFileSync(resolve(FIXTURES_DIR, name), "utf-8");
 
 // -- Fixtures -----------------------------------------------------------------
 
@@ -125,5 +131,73 @@ describe("TTML import · unprefixed transliterations", () => {
     const ttml = UNPREFIXED_TTML.replace(' itunes:key="L1"', "");
     const result = parseTtml(ttml);
     expect(result.lines[0]?.romanization).toBeUndefined();
+  });
+});
+
+// -- Apple-wrapped (iTunesMetadata) -------------------------------------------
+
+describe("TTML import · Apple-wrapped transliterations", () => {
+  it("imports romanization nested inside <iTunesMetadata>", () => {
+    const ttml = readFixture("imase-night-dancer.ttml");
+    const result = parseTtml(ttml);
+    expect(result.metadata?.romanizationScheme).toBe("ja-Latn-hepburn");
+    const linesWithRomanization = result.lines.filter((l) => l.romanization);
+    expect(linesWithRomanization.length).toBe(2);
+    expect(linesWithRomanization[0].romanization?.text).toBe("doudemo ii youna");
+    expect(linesWithRomanization[1].romanization?.text).toBe("yume no naka");
+  });
+
+  it("works when <transliterations> is deeply nested under metadata", () => {
+    const ttml = `<?xml version="1.0"?>
+<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:itunes="http://music.apple.com/lyric-ttml-internal" xml:lang="ja">
+  <head>
+    <metadata>
+      <ttm:agent type="person" xml:id="v1"/>
+      <iTunesMetadata>
+        <wrapperA>
+          <wrapperB>
+            <transliterations>
+              <transliteration xml:lang="ja-Latn-hepburn">
+                <text for="L1">deep nest</text>
+              </transliteration>
+            </transliterations>
+          </wrapperB>
+        </wrapperA>
+      </iTunesMetadata>
+    </metadata>
+  </head>
+  <body><div>
+    <p begin="0:00.000" end="0:01.000" itunes:key="L1" ttm:agent="v1">夜</p>
+  </div></body>
+</tt>`;
+    const result = parseTtml(ttml);
+    expect(result.lines[0]?.romanization?.text).toBe("deep nest");
+    expect(result.metadata?.romanizationScheme).toBe("ja-Latn-hepburn");
+  });
+});
+
+// -- Composer-namespaced (legacy) ---------------------------------------------
+
+describe("TTML import · composer:-namespaced transliterations", () => {
+  it("imports romanization from <composer:transliterations>", () => {
+    const ttml = `<?xml version="1.0"?>
+<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:itunes="http://music.apple.com/lyric-ttml-internal" xmlns:composer="https://composer.boidu.dev/ttml" xml:lang="ja">
+  <head>
+    <metadata>
+      <ttm:agent type="person" xml:id="v1"/>
+      <composer:transliterations>
+        <transliteration xml:lang="ja-Latn-hepburn">
+          <text for="L1">yoru</text>
+        </transliteration>
+      </composer:transliterations>
+    </metadata>
+  </head>
+  <body><div>
+    <p begin="0:00.000" end="0:01.000" itunes:key="L1" ttm:agent="v1">夜</p>
+  </div></body>
+</tt>`;
+    const result = parseTtml(ttml);
+    expect(result.lines[0]?.romanization?.text).toBe("yoru");
+    expect(result.metadata?.romanizationScheme).toBe("ja-Latn-hepburn");
   });
 });
