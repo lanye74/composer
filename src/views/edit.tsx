@@ -1,5 +1,6 @@
 import { isLinked } from "@/domain/instance/predicates";
 import { useDualClickImport } from "@/hooks/useDualClickImport";
+import { useRomanizationVisibility } from "@/hooks/useRomanizationVisibility";
 import { useAudioStore } from "@/stores/audio";
 import { useConfirm } from "@/stores/confirm-store";
 import { useImportModal, useImportModalStore, useLastImportResult } from "@/stores/import-modal-store";
@@ -18,11 +19,13 @@ import { classifyLine, extractBackgroundVocals, extractInlineFromLine } from "@/
 import { type ParseResult, parseLyricsFile } from "@/utils/lyrics-parsers";
 import { remapWordTextsPreservingTiming } from "@/domain/word/remap-text";
 import { stripSplitCharacter } from "@/utils/split-character";
+import { generateForProject } from "@/utils/romanization/generate-for-project";
 import { AgentManager } from "@/views/edit/agent-manager";
 import { decideEditTextAction } from "@/views/edit/decide-edit-text-action";
 import { detachInstancesFromLines } from "@/views/edit/diff-edit-text";
 import { parseLyrics } from "@/views/edit/parse-lyrics";
 import type { ParsedLine } from "@/views/edit/parse-lyrics";
+import { RomanizationBanner, type RomanizationBannerProgress } from "@/views/edit/romanization-banner";
 import {
   importParsedLyrics,
   type ImportParsedLyricsContext,
@@ -310,6 +313,8 @@ const EditPanel: React.FC = () => {
   const lastSelectedLineRef = useRef<number | null>(null);
   const dragAnchorRef = useRef<number | null>(null);
   const didDragRef = useRef(false);
+  const romanizationVisibility = useRomanizationVisibility();
+  const [romanizationProgress, setRomanizationProgress] = useState<RomanizationBannerProgress | undefined>(undefined);
 
   // Sync rawText when lines change externally (persistence restore, project import, etc.)
   useEffect(() => {
@@ -353,6 +358,25 @@ const EditPanel: React.FC = () => {
     const committed = useProjectStore.getState().lines;
     linesSetByUs.current = committed;
     setRawText(committed.map((line) => line.text).join("\n"));
+  }, []);
+
+  const handleGenerateAllRomanization = useCallback(async (scheme: string) => {
+    useProjectStore.getState().setRomanizationScheme(scheme);
+    setRomanizationProgress({ done: 0, total: 0 });
+    try {
+      await generateForProject({
+        scheme,
+        onProgress: (done, total) => setRomanizationProgress({ done, total }),
+      });
+    } catch (err) {
+      console.error("[Composer] Romanization generation failed", err);
+    } finally {
+      setRomanizationProgress(undefined);
+    }
+  }, []);
+
+  const handleDismissRomanizationBanner = useCallback(() => {
+    useProjectStore.getState().dismissRomanizationBanner();
   }, []);
 
   const handleExtractBackgroundVocals = useCallback(() => {
@@ -671,6 +695,16 @@ const EditPanel: React.FC = () => {
           {importTriggers.fileInput}
         </div>
       </div>
+
+      {(romanizationVisibility.shouldShowBanner || romanizationProgress !== undefined) && (
+        <RomanizationBanner
+          detectedScript={romanizationVisibility.dominantScript}
+          detectedLineCount={romanizationVisibility.detectedLineCount}
+          onPick={handleGenerateAllRomanization}
+          onDismiss={handleDismissRomanizationBanner}
+          progress={romanizationProgress}
+        />
+      )}
 
       {lastImportResult && (
         <ImportSuccessBanner
