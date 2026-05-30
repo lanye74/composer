@@ -77,7 +77,7 @@ describe("EditPanel romanization edit popover", () => {
     registerStubGenerator();
     const screen = await render(<EditPanel />);
     await screen.getByRole("button", { name: "Edit romanization", exact: true }).click();
-    await screen.getByRole("button", { name: /regenerate/i }).click();
+    await screen.getByRole("button", { name: "Regenerate", exact: true }).click();
     await expect.poll(() => useProjectStore.getState().lines[0].romanization?.text).toBe("auto:夜だけど");
     await expect.poll(() => useProjectStore.getState().lines[0].romanization?.source).toBe("generated");
     clearGeneratorRegistry();
