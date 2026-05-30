@@ -1,6 +1,5 @@
-import type { LyricLine } from "@/domain/line/model";
+import { useRegenerateRomanization } from "@/hooks/useRegenerateRomanization";
 import { Popover } from "@/ui/popover";
-import { generateForLine } from "@/utils/romanization/generate-for-line";
 import { IconRefresh, IconTrash } from "@tabler/icons-react";
 import { type ReactElement, useCallback, useState } from "react";
 import { useProjectStore } from "@/stores/project";
@@ -33,12 +32,17 @@ const RomanizationEditPopover: React.FC<RomanizationEditPopoverProps> = ({
   trigger,
 }) => {
   const [input, setInput] = useState(romanizationText);
-  const [isBusy, setIsBusy] = useState(false);
+  const { isBusy: regenerateIsBusy, regenerate } = useRegenerateRomanization(scheme);
+  const isBusy = regenerateIsBusy(lineId);
 
   const commit = useCallback(
     (next: string) => {
       const trimmed = next.trim();
+      const current = useProjectStore.getState().lines.find((l) => l.id === lineId)?.romanization?.text ?? "";
+      const hasChanged = trimmed !== current.trim();
+      if (!hasChanged) return;
       if (trimmed.length === 0) {
+        if (current.length === 0) return;
         useProjectStore.getState().clearLineRomanizationWithHistory(lineId);
         return;
       }
@@ -52,21 +56,15 @@ const RomanizationEditPopover: React.FC<RomanizationEditPopoverProps> = ({
 
   const handleRegenerate = useCallback(
     async (close: () => void) => {
-      setIsBusy(true);
-      try {
-        const target = useProjectStore.getState().lines.find((l) => l.id === lineId);
-        if (!target) return;
-        const data = await generateForLine(target satisfies LyricLine, scheme);
-        useProjectStore.getState().setLineRomanizationWithHistory(lineId, data);
-        setInput(data.text);
-        close();
-      } catch (err) {
-        console.error("[Composer] Romanization regenerate failed", err);
-      } finally {
-        setIsBusy(false);
-      }
+      const target = useProjectStore.getState().lines.find((l) => l.id === lineId);
+      if (!target) return;
+      await regenerate(target);
+      const updated = useProjectStore.getState().lines.find((l) => l.id === lineId);
+      const nextText = updated?.romanization?.text ?? "";
+      setInput(nextText);
+      close();
     },
-    [lineId, scheme],
+    [lineId, regenerate],
   );
 
   const handleClear = useCallback(

@@ -1,12 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   clearGeneratorRegistry,
   registerGeneratorFactory,
   type RomanizationGenerator,
 } from "@/domain/romanization/registry";
+import { markPersistenceSettled } from "@/lib/persistence-settled";
 import { useProjectStore } from "@/stores/project";
 import { createLine } from "@/test/factories";
 import { render } from "@/test/render";
+import { clearGeneratorCacheForTests } from "@/utils/romanization/generate-for-line";
 import { EditPanel } from "@/views/edit";
 
 // -- Helpers ------------------------------------------------------------------
@@ -36,6 +38,10 @@ function seedJapaneseLines(): void {
 // -- Tests --------------------------------------------------------------------
 
 describe("EditPanel romanization banner", () => {
+  beforeEach(() => {
+    markPersistenceSettled();
+  });
+
   it("renders the banner when non-latin lines exist and scheme is unset", async () => {
     seedJapaneseLines();
     const screen = await render(<EditPanel />);
@@ -88,9 +94,56 @@ describe("EditPanel romanization banner", () => {
 
     clearGeneratorRegistry();
   });
+
+  it("aborts in-flight generation when Dismiss is clicked mid-batch", async () => {
+    clearGeneratorRegistry();
+    clearGeneratorCacheForTests();
+    let releaseFirstLine: () => void = () => undefined;
+    const firstLineGate = new Promise<void>((resolve) => {
+      releaseFirstLine = resolve;
+    });
+    let linesProcessed = 0;
+    registerGeneratorFactory("ja-Latn-hepburn", async () => ({
+      scheme: "ja-Latn-hepburn",
+      async generateLine(text: string) {
+        linesProcessed += 1;
+        if (linesProcessed === 1) await firstLineGate;
+        return `r:${text}`;
+      },
+      async generateWords(words) {
+        linesProcessed += 1;
+        if (linesProcessed === 1) await firstLineGate;
+        return words.map((w) => ({ ...w, text: `r:${w.text}` }));
+      },
+    }));
+    seedJapaneseLines();
+
+    const screen = await render(<EditPanel />);
+
+    const generate = screen.getByRole("button", { name: /generate/i });
+    await generate.click();
+
+    await expect.poll(() => linesProcessed).toBeGreaterThanOrEqual(1);
+
+    const dismiss = screen.getByRole("button", { name: /dismiss romanization/i });
+    await dismiss.click();
+
+    await expect.poll(() => useProjectStore.getState().metadata.romanizationBannerDismissed).toBe(true);
+
+    releaseFirstLine();
+
+    await expect.poll(() => useProjectStore.getState().lines.filter((l) => l.romanization).length).toBe(0);
+    expect(linesProcessed).toBeLessThan(2);
+
+    clearGeneratorRegistry();
+  });
 });
 
 describe("EditPanel romanization banner invariants", () => {
+  beforeEach(() => {
+    markPersistenceSettled();
+  });
+
   it("never appears when both scheme is set and dismissal is true", async () => {
     seedJapaneseLines();
     useProjectStore.getState().setRomanizationScheme("ja-Latn-hepburn");

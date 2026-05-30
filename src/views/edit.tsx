@@ -1,5 +1,6 @@
 import { isLinked } from "@/domain/instance/predicates";
 import { useDualClickImport } from "@/hooks/useDualClickImport";
+import { useRegenerateRomanization } from "@/hooks/useRegenerateRomanization";
 import { useRomanizationVisibility } from "@/hooks/useRomanizationVisibility";
 import { useAudioStore } from "@/stores/audio";
 import { useConfirm } from "@/stores/confirm-store";
@@ -20,8 +21,8 @@ import { classifyLine, extractBackgroundVocals, extractInlineFromLine } from "@/
 import { type ParseResult, parseLyricsFile } from "@/utils/lyrics-parsers";
 import { remapWordTextsPreservingTiming } from "@/domain/word/remap-text";
 import { stripSplitCharacter } from "@/utils/split-character";
-import { generateForLine } from "@/utils/romanization/generate-for-line";
 import { generateForProject } from "@/utils/romanization/generate-for-project";
+import { ROMANIZATION_LOG_PREFIX } from "@/utils/romanization/log-prefix";
 import { AgentManager } from "@/views/edit/agent-manager";
 import { decideEditTextAction } from "@/views/edit/decide-edit-text-action";
 import { detachInstancesFromLines } from "@/views/edit/diff-edit-text";
@@ -128,23 +129,16 @@ const LinePreview: React.FC<{
   didDragRef,
 }) => {
   const [bgInput, setBgInput] = useState(line.backgroundText ?? "");
-  const [isRegenerating, setIsRegenerating] = useState(false);
+  const { isBusy, regenerate } = useRegenerateRomanization(scheme);
+  const isRegenerating = line.lineId ? isBusy(line.lineId) : false;
   const agentColor = getAgentColor(line.agentId);
 
   const handleRegenerateRomanization = useCallback(async () => {
-    if (!line.lineId || !scheme) return;
-    setIsRegenerating(true);
-    try {
-      const target = useProjectStore.getState().lines.find((l) => l.id === line.lineId);
-      if (!target) return;
-      const data = await generateForLine(target, scheme);
-      useProjectStore.getState().setLineRomanizationWithHistory(line.lineId, data);
-    } catch (err) {
-      console.error("[Composer] Romanization regenerate failed", err);
-    } finally {
-      setIsRegenerating(false);
-    }
-  }, [line.lineId, scheme]);
+    if (!line.lineId) return;
+    const target = useProjectStore.getState().lines.find((l) => l.id === line.lineId);
+    if (!target) return;
+    await regenerate(target);
+  }, [line.lineId, regenerate]);
 
   const handleBgBlur = useCallback(() => {
     if (line.lineId) {
@@ -444,22 +438,34 @@ const EditPanel: React.FC = () => {
     setRawText(committed.map((line) => line.text).join("\n"));
   }, []);
 
+  const romanizationAbortRef = useRef<AbortController | null>(null);
+
   const handleGenerateAllRomanization = useCallback(async (scheme: string) => {
+    romanizationAbortRef.current?.abort();
+    const controller = new AbortController();
+    romanizationAbortRef.current = controller;
     useProjectStore.getState().setRomanizationScheme(scheme);
     setRomanizationProgress({ done: 0, total: 0 });
     try {
       await generateForProject({
         scheme,
+        signal: controller.signal,
         onProgress: (done, total) => setRomanizationProgress({ done, total }),
       });
     } catch (err) {
-      console.error("[Composer] Romanization generation failed", err);
+      console.error(`${ROMANIZATION_LOG_PREFIX} Bulk generation failed`, err);
     } finally {
+      if (romanizationAbortRef.current === controller) {
+        romanizationAbortRef.current = null;
+      }
       setRomanizationProgress(undefined);
     }
   }, []);
 
   const handleDismissRomanizationBanner = useCallback(() => {
+    const controller = romanizationAbortRef.current;
+    if (controller && !controller.signal.aborted) controller.abort();
+    romanizationAbortRef.current = null;
     useProjectStore.getState().dismissRomanizationBanner();
   }, []);
 

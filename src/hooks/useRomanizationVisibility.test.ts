@@ -62,6 +62,23 @@ describe("computeRomanizationVisibility", () => {
   });
 });
 
+describe("computeRomanizationVisibility memo / WeakMap cache", () => {
+  it("caches detectScript per line reference across calls", () => {
+    const stable = line("L1", "夜だけど");
+    const firstCall = computeRomanizationVisibility([stable], {});
+    const secondCall = computeRomanizationVisibility([stable], {});
+    expect(firstCall.dominantScript).toBe("japanese");
+    expect(secondCall.dominantScript).toBe("japanese");
+  });
+
+  it("re-detects when a line object's text changes", () => {
+    const original = line("L1", "夜だけど");
+    const reused = { ...original, text: "hello" };
+    expect(computeRomanizationVisibility([original], {}).dominantScript).toBe("japanese");
+    expect(computeRomanizationVisibility([reused], {}).dominantScript).toBe("latin");
+  });
+});
+
 describe("computeRomanizationVisibility invariants", () => {
   it("is stable for the same inputs", () => {
     const lines = [line("L1", "夜だけど"), line("L2", "hello")];

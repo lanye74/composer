@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 import { clearGeneratorRegistry, registerGeneratorFactory } from "@/domain/romanization/registry";
+import { markPersistenceSettled } from "@/lib/persistence-settled";
 import { useProjectStore } from "@/stores/project";
 import { createLine } from "@/test/factories";
 import { render } from "@/test/render";
@@ -39,6 +40,10 @@ function registerStubGenerator(): void {
 // -- Tests --------------------------------------------------------------------
 
 describe("EditPanel romanization edit popover", () => {
+  beforeEach(() => {
+    markPersistenceSettled();
+  });
+
   it("opens an input when the romanization subrow is clicked", async () => {
     seedFilledRomanization();
     const screen = await render(<EditPanel />);
@@ -95,6 +100,10 @@ describe("EditPanel romanization edit popover", () => {
 });
 
 describe("EditPanel romanization edit popover invariants", () => {
+  beforeEach(() => {
+    markPersistenceSettled();
+  });
+
   it("focuses the input on open", async () => {
     seedFilledRomanization();
     const screen = await render(<EditPanel />);
@@ -107,5 +116,26 @@ describe("EditPanel romanization edit popover invariants", () => {
     useProjectStore.setState({ lines: [createLine({ id: "L1", text: "夜だけど" })] });
     const screen = await render(<EditPanel />);
     expect(screen.container.querySelector('[aria-label="Edit romanization"]')).toBeNull();
+  });
+
+  it("preserves source: generated when the popover is opened and closed without editing", async () => {
+    seedFilledRomanization();
+    const screen = await render(<EditPanel />);
+    await screen.getByRole("button", { name: "Edit romanization", exact: true }).click();
+    const input = screen.getByRole("textbox", { name: /romanization text/i }).element() as HTMLInputElement;
+    input.blur();
+    await expect.poll(() => useProjectStore.getState().lines[0].romanization?.source).toBe("generated");
+    await expect.poll(() => useProjectStore.getState().lines[0].romanization?.text).toBe("yoru dakedo");
+  });
+
+  it("preserves source: generated after Regenerate when the popover closes", async () => {
+    seedFilledRomanization();
+    registerStubGenerator();
+    const screen = await render(<EditPanel />);
+    await screen.getByRole("button", { name: "Edit romanization", exact: true }).click();
+    await screen.getByRole("button", { name: "Regenerate", exact: true }).click();
+    await expect.poll(() => useProjectStore.getState().lines[0].romanization?.source).toBe("generated");
+    await expect.poll(() => useProjectStore.getState().lines[0].romanization?.text).toBe("auto:夜だけど");
+    clearGeneratorRegistry();
   });
 });
