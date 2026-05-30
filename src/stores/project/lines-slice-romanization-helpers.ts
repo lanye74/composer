@@ -23,10 +23,16 @@ function writeRomanization(
   return changed ? next : lines;
 }
 
-function assertRomanizationText(romanization: RomanizationData | undefined): void {
+function prepare(
+  state: ProjectState,
+  lineId: string,
+  romanization: RomanizationData | undefined,
+): { next: LyricLine[]; unchanged: boolean } {
   if (romanization && !romanization.text) {
     throw new Error("Romanization text cannot be empty");
   }
+  const next = writeRomanization(state.lines, lineId, romanization);
+  return { next, unchanged: next === state.lines };
 }
 
 // -- Slice actions ------------------------------------------------------------
@@ -36,9 +42,8 @@ function applyRomanization(
   lineId: string,
   romanization: RomanizationData | undefined,
 ): RomanizationStateChange | ProjectState {
-  assertRomanizationText(romanization);
-  const next = writeRomanization(state.lines, lineId, romanization);
-  if (next === state.lines) return state;
+  const { next, unchanged } = prepare(state, lineId, romanization);
+  if (unchanged) return state;
   return { lines: next, isDirty: true, isDirtySinceHistory: true };
 }
 
@@ -47,9 +52,8 @@ function applyRomanizationWithHistory(
   lineId: string,
   romanization: RomanizationData | undefined,
 ): RomanizationStateChange | ProjectState {
-  assertRomanizationText(romanization);
-  const next = writeRomanization(state.lines, lineId, romanization);
-  if (next === state.lines) return state;
+  const { next, unchanged } = prepare(state, lineId, romanization);
+  if (unchanged) return state;
   return commitHistory(state, { lines: next });
 }
 
