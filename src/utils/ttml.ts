@@ -5,6 +5,7 @@ import type { ProjectMetadata } from "@/domain/project/metadata";
 import { formatTime } from "@/utils/format-time";
 import { stripSplitCharacter } from "@/utils/split-character";
 import { effectiveBounds } from "@/domain/line/bounds";
+import { emitGeneratorElement, emitTransliterationsBlock, shouldEmitTransliterations } from "@/utils/ttml-romanization";
 
 // -- Helpers ------------------------------------------------------------------
 
@@ -34,12 +35,13 @@ function generateTTML({ metadata, agents, lines, groups, granularity, minify = f
   const ind = (n: number) => (minify ? "" : "  ".repeat(n));
 
   const effectiveGranularity = lines.some((l) => l.words?.length) ? "word" : "line";
+  const emitTransliterations = shouldEmitTransliterations(metadata, lines);
 
   const parts: string[] = [];
 
   // Root element with namespaces
   parts.push(
-    `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:ttp="http://www.w3.org/ns/ttml#parameter" xmlns:composer="https://composer.boidu.dev/ttml" ttp:timeBase="media" xml:lang="${escapeXml(metadata.language || "en")}" composer:timing="${effectiveGranularity === "word" ? "Word" : "Line"}">`,
+    `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:ttp="http://www.w3.org/ns/ttml#parameter" xmlns:itunes="http://music.apple.com/lyric-ttml-internal" xmlns:composer="https://composer.boidu.dev/ttml" ttp:timeBase="media" xml:lang="${escapeXml(metadata.language || "en")}" composer:timing="${effectiveGranularity === "word" ? "Word" : "Line"}">`,
   );
 
   // Head section
@@ -66,6 +68,10 @@ function generateTTML({ metadata, agents, lines, groups, granularity, minify = f
     }
     parts.push(`${ind(3)}</composer:groups>`);
   }
+  if (emitTransliterations) {
+    parts.push(emitGeneratorElement(__APP_VERSION__, ind));
+    parts.push(...emitTransliterationsBlock(metadata, lines, ind));
+  }
   parts.push(`${ind(2)}</metadata>`);
   parts.push(`${ind(1)}</head>`);
 
@@ -79,6 +85,7 @@ function generateTTML({ metadata, agents, lines, groups, granularity, minify = f
     if (!timing) continue;
 
     const agentAttr = line.agentId ? ` ttm:agent="${escapeXml(line.agentId)}"` : "";
+    const keyAttr = emitTransliterations ? ` itunes:key="${escapeXml(line.id)}"` : "";
     const groupAttr = line.groupId
       ? ` composer:groupId="${escapeXml(line.groupId)}" composer:instanceIdx="${line.instanceIdx ?? 0}" composer:templateLineIdx="${line.templateLineIdx ?? 0}"${line.detached ? ' composer:detached="true"' : ""}`
       : "";
@@ -113,7 +120,7 @@ function generateTTML({ metadata, agents, lines, groups, granularity, minify = f
     }
 
     parts.push(
-      `${ind(3)}<p begin="${formatTime(timing.begin)}" end="${formatTime(timing.end)}"${agentAttr}${groupAttr}>${content}</p>`,
+      `${ind(3)}<p begin="${formatTime(timing.begin)}" end="${formatTime(timing.end)}"${agentAttr}${keyAttr}${groupAttr}>${content}</p>`,
     );
   }
 

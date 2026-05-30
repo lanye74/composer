@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:ttp="http://www.w3.org/ns/ttml#parameter" xmlns:itunes="http://music.apple.com/lyric-ttml-internal" xmlns:composer="https://composer.boidu.dev/ttml" ttp:timeBase="media" xml:lang="ja" composer:timing="Word">
+  <head>
+    <metadata>
+      <ttm:title>Test Song</ttm:title>
+      <ttm:agent xml:id="v1" type="person">
+        <ttm:name>Lead</ttm:name>
+      </ttm:agent>
+      <composer:generator version="1.22.0" url="https://composer.boidu.dev"/>
+      <transliterations>
+        <transliteration xml:lang="ja-Latn-hepburn">
+          <text for="L1">
+            <span begin="0:00.833" end="0:01.195">doudemo</span>
+            <span begin="0:01.195" end="0:01.887">ii youna</span>
+          </text>
+          <text for="L2">yume no naka</text>
+        </transliteration>
+      </transliterations>
+    </metadata>
+  </head>
+  <body>
+    <div>
+      <p begin="0:00.833" end="0:01.887" itunes:key="L1" ttm:agent="v1"><span begin="0:00.833" end="0:01.195">どうでも</span> <span begin="0:01.195" end="0:01.887">いいような</span></p>
+      <p begin="0:02.000" end="0:04.000" itunes:key="L2" ttm:agent="v1">夢の中</p>
+    </div>
+  </body>
+</tt>
