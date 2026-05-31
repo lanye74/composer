@@ -69,10 +69,9 @@ describe("WordBlock romanization subtext", () => {
 
   it("still hits the source word block when clicking", async () => {
     let clicks = 0;
-    const screen = await render(
-      <WordBlock {...BASE_PROPS} romanization="yoru" onClick={() => clicks++} />,
-      { dndContext: true },
-    );
+    const screen = await render(<WordBlock {...BASE_PROPS} romanization="yoru" onClick={() => clicks++} />, {
+      dndContext: true,
+    });
     const block = screen.container.querySelector("[data-word-block]") as HTMLElement;
     block.click();
     expect(clicks).toBe(1);

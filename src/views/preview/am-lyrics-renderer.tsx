@@ -12,10 +12,12 @@ interface AmLyricsRendererProps {
 }
 
 // Lit's @state() marks `showRomanization` private at the TS level, but the
-// underlying runtime element is a plain Lit element instance. Writing to the
-// reactive field triggers a re-render, and calling `requestUpdate` reconciles
-// the template that gates romaji rendering on `this.showRomanization`.
-interface AmLyricsWithRomanization extends AmLyricsElement {
+// underlying runtime element is a plain Lit element instance. The toggle
+// method flips the reactive field and triggers the template that gates romaji
+// rendering on `this.showRomanization`. We model only the public surface we
+// touch and bridge through the `unknown` cast at the call site.
+interface AmLyricsRuntime {
+  updateComplete: Promise<unknown>;
   showRomanization?: boolean;
   toggleRomanization?: () => Promise<void> | void;
 }
@@ -112,7 +114,7 @@ const AmLyricsRenderer: React.FC<AmLyricsRendererProps> = ({ ttmlString, duratio
 
   useEffect(() => {
     if (!elementReady) return;
-    const el = elementRef.current as AmLyricsWithRomanization | null;
+    const el = elementRef.current as unknown as AmLyricsRuntime | null;
     if (!el) return;
     let cancelled = false;
     el.updateComplete.then(() => {
@@ -123,7 +125,7 @@ const AmLyricsRenderer: React.FC<AmLyricsRendererProps> = ({ ttmlString, duratio
     return () => {
       cancelled = true;
     };
-  }, [elementReady, romanizationEnabled, ttmlString]);
+  }, [elementReady, romanizationEnabled]);
 
   useRendererAudioSync(elementRef, (el, audio) => {
     el.currentTime = audio.currentTime * 1000;

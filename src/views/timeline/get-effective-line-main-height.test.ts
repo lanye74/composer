@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LyricLine } from "@/domain/line/model";
-import {
-  getEffectiveLineMainHeight,
-  ROMAJI_BAND_HEIGHT,
-} from "@/views/timeline/get-effective-line-main-height";
+import { getEffectiveLineMainHeight, ROMAJI_BAND_HEIGHT } from "@/views/timeline/get-effective-line-main-height";
 
 // -- Fixtures -----------------------------------------------------------------
 

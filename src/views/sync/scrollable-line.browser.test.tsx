@@ -53,9 +53,7 @@ describe("ScrollableLine romanization reference", () => {
   });
 
   it("does not render romanization when scheme is unset", async () => {
-    const screen = await render(
-      <ScrollableLine {...BASE_PROPS} text="夜だけど" romanizationText="yoru dakedo" />,
-    );
+    const screen = await render(<ScrollableLine {...BASE_PROPS} text="夜だけど" romanizationText="yoru dakedo" />);
     expect(screen.container.querySelector('[data-testid="romanization-reference"]')).toBeNull();
   });
 

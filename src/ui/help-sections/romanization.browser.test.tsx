@@ -8,7 +8,11 @@ describe("RomanizationSection", () => {
   it("explains what romanization is", async () => {
     const screen = await render(<RomanizationSection />);
     await expect
-      .element(screen.getByText("Romanization shows a Latin-script reading under the source lyrics. Useful for non-Latin scripts your listeners can't read: Japanese, Chinese, and so on."))
+      .element(
+        screen.getByText(
+          "Romanization shows a Latin-script reading under the source lyrics. Useful for non-Latin scripts your listeners can't read: Japanese, Chinese, and so on.",
+        ),
+      )
       .toBeInTheDocument();
   });
 

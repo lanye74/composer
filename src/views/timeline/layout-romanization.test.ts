@@ -136,8 +136,10 @@ describe("computeRowLayout · romanization adjustment", () => {
     const lines = [romanizedLineWithBg("L1")];
     const layout = computeRowLayout(defaultInputs(lines));
     const pos = layout.lineTops.get("L1");
-    expect(pos?.mainHeight - DEFAULT_ROW_HEIGHT).toBe(ROMAJI_BAND_HEIGHT);
-    expect(pos?.bgHeight).toBe(DEFAULT_ROW_HEIGHT);
+    expect(pos).toBeDefined();
+    if (!pos) return;
+    expect(pos.mainHeight - DEFAULT_ROW_HEIGHT).toBe(ROMAJI_BAND_HEIGHT);
+    expect(pos.bgHeight).toBe(DEFAULT_ROW_HEIGHT);
   });
 });
 
