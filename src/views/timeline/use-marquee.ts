@@ -1,5 +1,4 @@
 import { useProjectStore } from "@/stores/project";
-import { getEffectiveLineMainHeight } from "@/views/timeline/get-effective-line-main-height";
 import { GROUP_HEADER_HEIGHT } from "@/views/timeline/group-header-row";
 import type { WordSelection } from "@/domain/selection/model";
 import { GUTTER_WIDTH, useTimelineStore, WAVEFORM_HEIGHT } from "@/views/timeline/timeline-store";
@@ -79,11 +78,8 @@ function useMarquee(scrollContainerRef: RefObject<HTMLDivElement | null>) {
       const pos = layout.lineTops.get(line.id);
       if (!pos) continue;
 
-      const baseHeight = rowHeights[line.id] ?? defaultRowHeight;
-      const mainHeight = getEffectiveLineMainHeight(line, baseHeight);
-      const hasBg = line.backgroundWords && line.backgroundWords.length > 0;
       const mainTop = pos.top;
-      const mainBottom = mainTop + mainHeight;
+      const mainBottom = mainTop + pos.mainHeight;
 
       if (mainTop < rectBottom && mainBottom > rect.y && line.words) {
         for (let wordIndex = 0; wordIndex < line.words.length; wordIndex++) {
@@ -96,10 +92,10 @@ function useMarquee(scrollContainerRef: RefObject<HTMLDivElement | null>) {
         }
       }
 
+      const hasBg = line.backgroundWords && line.backgroundWords.length > 0;
       if (hasBg && line.backgroundWords) {
-        const bgHeight = baseHeight;
         const bgTop = mainBottom;
-        const bgBottom = bgTop + bgHeight;
+        const bgBottom = bgTop + pos.bgHeight;
         if (bgTop < rectBottom && bgBottom > rect.y) {
           for (let wordIndex = 0; wordIndex < line.backgroundWords.length; wordIndex++) {
             const word = line.backgroundWords[wordIndex];

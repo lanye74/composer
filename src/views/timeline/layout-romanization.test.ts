@@ -144,15 +144,38 @@ describe("computeRowLayout · romanization adjustment", () => {
 });
 
 describe("computeRowLayout · romanization invariants", () => {
-  it("returns immutable position records (consumers don't mutate)", () => {
+  it("two calls on the same inputs produce equal position records (idempotent)", () => {
+    const lines = [romanizedLine("L1"), plainLine("L2")];
+    const a = computeRowLayout(defaultInputs(lines));
+    const b = computeRowLayout(defaultInputs(lines));
+    expect(a.lineTops.get("L1")).toEqual(b.lineTops.get("L1"));
+    expect(a.lineTops.get("L2")).toEqual(b.lineTops.get("L2"));
+  });
+
+  it("mutating a returned position record does not corrupt a subsequent computation", () => {
+    const lines = [romanizedLine("L1"), plainLine("L2")];
+    const before = computeRowLayout(defaultInputs(lines));
+    const posBefore = before.lineTops.get("L1");
+    expect(posBefore).toBeDefined();
+    if (!posBefore) return;
+    const snapshot = { ...posBefore };
+
+    posBefore.top = 99999;
+    posBefore.mainHeight = 99999;
+    posBefore.bgHeight = 99999;
+    posBefore.height = 99999;
+
+    const after = computeRowLayout(defaultInputs(lines));
+    const posAfter = after.lineTops.get("L1");
+    expect(posAfter).toEqual(snapshot);
+  });
+
+  it("returns a distinct map instance per call (no internal caching aliases)", () => {
     const lines = [romanizedLine("L1")];
-    const layout = computeRowLayout(defaultInputs(lines));
-    const pos = layout.lineTops.get("L1");
-    expect(pos).toBeDefined();
-    if (!pos) return;
-    const before = { ...pos };
-    expect(pos.top).toBe(before.top);
-    expect(pos.height).toBe(before.height);
+    const a = computeRowLayout(defaultInputs(lines));
+    const b = computeRowLayout(defaultInputs(lines));
+    expect(a.lineTops).not.toBe(b.lineTops);
+    expect(a.lineTops.get("L1")).not.toBe(b.lineTops.get("L1"));
   });
 
   it("turning a romanized line into a plain one shrinks the stack by ROMAJI_BAND_HEIGHT", () => {

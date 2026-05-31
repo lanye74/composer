@@ -9,7 +9,7 @@ import type { WordTiming } from "@/domain/word/timing";
 import { formatTime as formatTimeBase } from "@/utils/format-time";
 import { expandSelectionToGroupmates } from "@/domain/word/syllable-groups";
 import { distributeWordsInLine } from "@/utils/sync-helpers";
-import { getEffectiveLineMainHeight } from "@/views/timeline/get-effective-line-main-height";
+import { computeLineRowHeights } from "@/views/timeline/compute-line-row-heights";
 import { findWordsAtTime } from "@/views/timeline/word-at-playhead";
 
 // -- Functions -----------------------------------------------------------------
@@ -180,12 +180,13 @@ function computeRowLayout({
     if (isCollapsed) continue;
 
     const baseHeight = rowHeights[line.id] ?? defaultRowHeight;
-    const mainHeight = getEffectiveLineMainHeight(line, baseHeight);
-    const hasBg = line.backgroundWords && line.backgroundWords.length > 0;
-    const bgHeight = hasBg ? baseHeight : bgDropZoneHeight;
-    const rowHeight = mainHeight + bgHeight + 1;
-    lineTops.set(line.id, { top: rowTop, height: rowHeight, mainHeight, bgHeight });
-    rowTop += rowHeight;
+    const { mainHeight, bgHeight, totalHeight } = computeLineRowHeights({
+      line,
+      baseHeight,
+      bgDropZoneHeight,
+    });
+    lineTops.set(line.id, { top: rowTop, height: totalHeight, mainHeight, bgHeight });
+    rowTop += totalHeight;
   }
 
   return { lineTops, headerTops };

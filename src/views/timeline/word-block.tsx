@@ -43,6 +43,9 @@ const SYLLABLE_RADIUS: Record<SyllablePosition, string> = {
   last: "rounded-r-xl rounded-l-none",
 };
 
+// Minimum natural cell width (px) below which romaji is hidden. Derived from
+// a 12px main text line plus a 10px italic romaji line equals 22px of vertical
+// content, plus a 1px gap on each side, rounded up to the next even width.
 const ROMAJI_VISIBILITY_THRESHOLD = 24;
 
 const WordBlock: React.FC<WordBlockProps> = ({

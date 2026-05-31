@@ -8,7 +8,12 @@ function sameWordSelection(a: WordSelection, b: WordSelection): boolean {
   return a.lineId === b.lineId && a.wordIndex === b.wordIndex && a.type === b.type;
 }
 
-function isWordSelected(selections: WordSelection[], lineId: string, wordIndex: number, type: "word" | "bg"): boolean {
+function isWordSelected(
+  selections: ReadonlyArray<WordSelection>,
+  lineId: string,
+  wordIndex: number,
+  type: "word" | "bg",
+): boolean {
   return selections.some((w) => w.lineId === lineId && w.wordIndex === wordIndex && w.type === type);
 }
 

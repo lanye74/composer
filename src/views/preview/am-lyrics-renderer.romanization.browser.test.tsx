@@ -80,4 +80,16 @@ describe("AmLyricsRenderer romanization", () => {
     await expect.poll(() => allShadowText(el)).toContain("yume");
     await expect.poll(() => allShadowText(el)).toContain("mite");
   });
+
+  it("exposes toggleRomanization on the runtime element (private-method bridge contract)", async () => {
+    useAudioStore.setState({ audioElement: new Audio() });
+
+    const screen = await render(
+      <AmLyricsRenderer ttmlString={buildRomanizedJapaneseTtml()} durationSeconds={SONG_DURATION_SECONDS} />,
+    );
+    const el = await waitForAmLyrics(screen.container);
+    const runtime = el as unknown as { toggleRomanization?: unknown };
+
+    await expect.poll(() => typeof runtime.toggleRomanization).toBe("function");
+  });
 });

@@ -26,24 +26,25 @@ import { TimelineRows } from "@/views/timeline/timeline-rows";
 import { useTimelineStore, WAVEFORM_HEIGHT } from "@/views/timeline/timeline-store";
 import { TimelineWaveform } from "@/views/timeline/timeline-waveform";
 import { useMarquee } from "@/views/timeline/use-marquee";
-import {
-  expandSelectionToGroupmates,
-  getSyllablePositions,
-  type SyllablePosition,
-} from "@/domain/word/syllable-groups";
+import type { SyllablePosition } from "@/domain/word/syllable-groups";
 import { useTimelineDnd } from "@/views/timeline/use-timeline-dnd";
 import { useTimelineKeyboard } from "@/views/timeline/use-timeline-keyboard";
 import { useTimelinePan } from "@/views/timeline/use-timeline-pan";
 import { useTimelineWheel } from "@/views/timeline/use-timeline-wheel";
 import { mainBounds } from "@/domain/line/bounds";
 import { getEffectiveLines } from "@/domain/line/effective-words";
-import { computeRowLayout, distributeLinesTiming } from "@/views/timeline/utils";
+import { computeDragCellPositions } from "@/views/timeline/compute-drag-cell-positions";
+import { distributeLinesTiming } from "@/views/timeline/utils";
 import { GROUP_HEADER_HEIGHT } from "@/views/timeline/group-header-row";
 import { IconMusic } from "@tabler/icons-react";
 import { DndContext, DragOverlay } from "@dnd-kit/core";
 import { useOverlayScrollbars } from "overlayscrollbars-react";
 import "overlayscrollbars/overlayscrollbars.css";
 import { Activity, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+// -- Constants -----------------------------------------------------------------
+
+const BG_DROP_ZONE_HEIGHT = 24;
 
 // -- Components ----------------------------------------------------------------
 
@@ -242,125 +243,21 @@ const TimelinePanel: React.FC = () => {
   const dragCells = useMemo(() => {
     if (!activeDrag) return null;
     const { selectedWords, rowHeights, defaultRowHeight, collapsedInstances } = useTimelineStore.getState();
-    const inSelection = isWordSelected(selectedWords, activeDrag.lineId, activeDrag.wordIndex, activeDrag.trackType);
-
-    const BG_DROP_ZONE_HEIGHT = 24;
-
-    const layout = computeRowLayout({
-      lines: effectiveLines,
-      rowHeights,
-      defaultRowHeight,
-      collapsedInstances,
-      waveformHeight: WAVEFORM_HEIGHT,
-      bgDropZoneHeight: BG_DROP_ZONE_HEIGHT,
-      groupHeaderHeight: GROUP_HEADER_HEIGHT,
+    return computeDragCellPositions({
+      activeDrag,
+      effectiveLines,
+      selectedWords,
+      layoutInputs: {
+        lines: effectiveLines,
+        rowHeights,
+        defaultRowHeight,
+        collapsedInstances,
+        waveformHeight: WAVEFORM_HEIGHT,
+        bgDropZoneHeight: BG_DROP_ZONE_HEIGHT,
+        groupHeaderHeight: GROUP_HEADER_HEIGHT,
+      },
+      zoom,
     });
-
-    const rowTops: Record<string, number> = {};
-    const rowMainHeights: Record<string, number> = {};
-    const rowBgTops: Record<string, number> = {};
-    const rowBgHeights: Record<string, number> = {};
-    for (const line of effectiveLines) {
-      const pos = layout.lineTops.get(line.id);
-      if (!pos) continue;
-      const mainH = rowHeights[line.id] ?? defaultRowHeight;
-      const hasBg = line.backgroundWords && line.backgroundWords.length > 0;
-      const bgH = hasBg ? mainH : BG_DROP_ZONE_HEIGHT;
-      rowTops[line.id] = pos.top;
-      rowMainHeights[line.id] = mainH;
-      rowBgTops[line.id] = pos.top + mainH;
-      rowBgHeights[line.id] = bgH;
-    }
-
-    const anchorLeft = activeDrag.begin * zoom;
-    const anchorTop = activeDrag.trackType === "bg" ? rowBgTops[activeDrag.lineId] : rowTops[activeDrag.lineId];
-    const anchorHeight =
-      activeDrag.trackType === "bg" ? rowBgHeights[activeDrag.lineId] : rowMainHeights[activeDrag.lineId];
-
-    const baseSelections =
-      inSelection && selectedWords.length > 1
-        ? selectedWords
-        : [
-            {
-              lineId: activeDrag.lineId,
-              lineIndex: activeDrag.lineIndex,
-              wordIndex: activeDrag.wordIndex,
-              type: activeDrag.trackType,
-            },
-          ];
-
-    const lineById = new Map(effectiveLines.map((l) => [l.id, l]));
-
-    const wordsToShow: typeof baseSelections = [];
-    const seen = new Set<string>();
-    for (const sel of baseSelections) {
-      const line = lineById.get(sel.lineId);
-      const wordsArray = sel.type === "word" ? line?.words : line?.backgroundWords;
-      if (!line || !wordsArray) continue;
-      const indices = expandSelectionToGroupmates(wordsArray, [sel.wordIndex]);
-      for (const idx of indices) {
-        const key = `${sel.lineId}:${sel.type}:${idx}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        wordsToShow.push({ lineId: sel.lineId, lineIndex: sel.lineIndex, wordIndex: idx, type: sel.type });
-      }
-    }
-
-    if (wordsToShow.length <= 1) {
-      const w = Math.max((activeDrag.end - activeDrag.begin) * zoom, 4);
-      return {
-        cells: [
-          {
-            text: activeDrag.text,
-            left: 0,
-            top: 0,
-            width: w,
-            height: anchorHeight - 8,
-            syllablePosition: "none" as SyllablePosition,
-          },
-        ],
-        anchorWidth: w,
-        anchorHeight: anchorHeight - 8,
-      };
-    }
-
-    const positionsByLineTrack = new Map<string, SyllablePosition[]>();
-    const positionFor = (lineId: string, type: "word" | "bg", idx: number): SyllablePosition => {
-      const key = `${lineId}:${type}`;
-      let positions = positionsByLineTrack.get(key);
-      if (!positions) {
-        const line = lineById.get(lineId);
-        const wordsArray = type === "word" ? line?.words : line?.backgroundWords;
-        positions = wordsArray ? getSyllablePositions(wordsArray) : [];
-        positionsByLineTrack.set(key, positions);
-      }
-      return positions[idx] ?? "none";
-    };
-
-    const cells = wordsToShow.map((sel) => {
-      const line = lineById.get(sel.lineId);
-      const wordsArray = sel.type === "word" ? line?.words : line?.backgroundWords;
-      const word = wordsArray?.[sel.wordIndex];
-      if (!word || !line)
-        return { text: "", left: 0, top: 0, width: 0, height: 0, syllablePosition: "none" as SyllablePosition };
-
-      const cellLeft = word.begin * zoom - anchorLeft;
-      const cellTop = (sel.type === "bg" ? rowBgTops[line.id] : rowTops[line.id]) - anchorTop;
-      const cellWidth = Math.max((word.end - word.begin) * zoom, 4);
-      const cellHeight = (sel.type === "bg" ? rowBgHeights[line.id] : rowMainHeights[line.id]) - 8;
-
-      return {
-        text: word.text.trimEnd(),
-        left: cellLeft,
-        top: cellTop,
-        syllablePosition: positionFor(sel.lineId, sel.type, sel.wordIndex),
-        width: cellWidth,
-        height: cellHeight,
-      };
-    });
-
-    const anchorW = Math.max((activeDrag.end - activeDrag.begin) * zoom, 4);
-    return { cells, anchorWidth: anchorW, anchorHeight: anchorHeight - 8 };
   }, [activeDrag, zoom, effectiveLines]);
 
   if (!source) {

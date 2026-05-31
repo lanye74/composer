@@ -4,7 +4,7 @@ import type { LyricLine } from "@/domain/line/model";
 import { useProjectStore } from "@/stores/project";
 import type { WordTiming } from "@/domain/word/timing";
 import { applyWordPatch } from "@/utils/word-patch";
-import { getEffectiveLineMainHeight } from "@/views/timeline/get-effective-line-main-height";
+import { computeLineRowHeights } from "@/views/timeline/compute-line-row-heights";
 import { GROUP_HEADER_HEIGHT, GroupHeaderRow } from "@/views/timeline/group-header-row";
 import { LineRow } from "@/views/timeline/line-row";
 import { DEFAULT_ROW_HEIGHT, GUTTER_WIDTH, useTimelineStore, WAVEFORM_HEIGHT } from "@/views/timeline/timeline-store";
@@ -139,9 +139,11 @@ const TimelineRows: React.FC<TimelineRowsProps> = ({ scrollContainerRef }) => {
       if (!row) return DEFAULT_ROW_HEIGHT + BG_DROP_ZONE_HEIGHT;
       if (row.kind === "group-header") return GROUP_HEADER_HEIGHT;
       const baseHeight = rowHeights[row.line.id] ?? DEFAULT_ROW_HEIGHT;
-      const mainHeight = getEffectiveLineMainHeight(row.line, baseHeight);
-      const hasBgWords = row.line.backgroundWords && row.line.backgroundWords.length > 0;
-      return mainHeight + (hasBgWords ? baseHeight : BG_DROP_ZONE_HEIGHT) + 1;
+      return computeLineRowHeights({
+        line: row.line,
+        baseHeight,
+        bgDropZoneHeight: BG_DROP_ZONE_HEIGHT,
+      }).totalHeight;
     },
     [visibleRows, rowHeights],
   );
