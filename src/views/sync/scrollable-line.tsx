@@ -82,7 +82,7 @@ const ScrollableLineInner: React.FC<ScrollableLineProps> = ({
   romanizationScheme,
   romanizationText,
 }) => {
-  const lineRef = useRef<HTMLDivElement>(null);
+  const lineRef = useRef<HTMLButtonElement>(null);
   const wordTexts = useMemo(() => (words?.length ? words.map((w) => w.text) : splitIntoWords(text)), [text, words]);
   const bgWordTexts = useMemo(
     () =>
@@ -240,15 +240,12 @@ const ScrollableLineInner: React.FC<ScrollableLineProps> = ({
   };
 
   return (
-    <div
+    <button
       ref={lineRef}
-      role="button"
+      type="button"
       tabIndex={-1}
       onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") onClick();
-      }}
-      className={`flex items-start gap-3 px-4 py-2 w-full text-left cursor-pointer transition-colors hover:bg-composer-button/50 border-l ${
+      className={`flex items-start gap-3 px-4 py-2 w-full text-left cursor-pointer transition-colors hover:bg-composer-button/50 border-l appearance-none bg-transparent text-inherit font-inherit ${
         isCurrent ? "bg-composer-accent/10 border-composer-accent" : "border-transparent"
       }`}
     >
@@ -310,7 +307,7 @@ const ScrollableLineInner: React.FC<ScrollableLineProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </button>
   );
 };
 

@@ -23,7 +23,7 @@ describe("ScrollableLine", () => {
   it("invokes onClick when the line is clicked", async () => {
     let clicks = 0;
     const screen = await render(<ScrollableLine {...BASE_PROPS} onClick={() => clicks++} />);
-    (screen.container.querySelector("div") as HTMLElement).click();
+    (screen.container.querySelector("button") as HTMLElement).click();
     expect(clicks).toBeGreaterThan(0);
   });
 
