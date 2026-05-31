@@ -168,6 +168,9 @@ importers:
       vitest-browser-react:
         specifier: ^2.2.0
         version: 2.2.0(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vitest@4.1.6)
+      zlibjs:
+        specifier: ^0.3.1
+        version: 0.3.1
 
 packages:
 
