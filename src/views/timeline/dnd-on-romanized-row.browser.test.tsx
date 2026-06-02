@@ -31,10 +31,7 @@ function seedTwoLineProject(): { romanizedId: string; plainId: string } {
         romanization: {
           text: "yoru dakedo",
           source: "generated",
-          words: [
-            { text: "yoru", begin: 0, end: 1 },
-            { text: "dakedo", begin: 1, end: 2 },
-          ],
+          wordTexts: ["yoru", "dakedo"],
         },
       }),
       createLine({
@@ -207,10 +204,10 @@ describe("DnD on a romanized timeline row", () => {
     expect(after[1].end).toBeCloseTo(before[1].end + 0.5, 4);
   });
 
-  it("does not mutate romaji words when a source-band word is repositioned", async () => {
+  it("does not mutate romaji texts when a source-band word is repositioned", async () => {
     const { romanizedId } = seedTwoLineProject();
     const lines = useProjectStore.getState().lines;
-    const beforeRomaji = lines.find((l) => l.id === romanizedId)?.romanization?.words;
+    const beforeRomaji = lines.find((l) => l.id === romanizedId)?.romanization?.wordTexts;
     expect(beforeRomaji?.length).toBe(2);
 
     const { result } = await renderHook(() => useTimelineDnd(lines));
@@ -218,11 +215,9 @@ describe("DnD on a romanized timeline row", () => {
 
     const afterRomanization = useProjectStore.getState().lines.find((l) => l.id === romanizedId)?.romanization;
     expect(afterRomanization?.text).toBe("yoru dakedo");
-    expect(afterRomanization?.words?.length).toBe(2);
-    expect(afterRomanization?.words?.[0].text).toBe("yoru");
-    expect(afterRomanization?.words?.[1].text).toBe("dakedo");
-    expect(afterRomanization?.words?.[0].begin).toBeCloseTo(0, 4);
-    expect(afterRomanization?.words?.[1].begin).toBeCloseTo(1, 4);
+    expect(afterRomanization?.wordTexts?.length).toBe(2);
+    expect(afterRomanization?.wordTexts?.[0]).toBe("yoru");
+    expect(afterRomanization?.wordTexts?.[1]).toBe("dakedo");
   });
 
   it("moves a main-track word down to the bg track on a romanized line without touching romaji", async () => {

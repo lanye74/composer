@@ -87,10 +87,7 @@ describe("Marquee selection on a romanized timeline row", () => {
           romanization: {
             text: "yoru dakedo",
             source: "generated",
-            words: [
-              { text: "yoru", begin: 0, end: 1 },
-              { text: "dakedo", begin: 1, end: 2 },
-            ],
+            wordTexts: ["yoru", "dakedo"],
           },
         }),
       ],

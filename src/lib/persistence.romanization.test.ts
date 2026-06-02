@@ -128,7 +128,7 @@ describe("persistence: romanization round-trip", () => {
       granularity: "line",
     });
     expect(parsed.lines[0].romanization?.text).toBe("yoru dakedo");
-    expect(parsed.lines[0].romanization?.words).toBeUndefined();
+    expect(parsed.lines[0].romanization?.wordTexts).toBeUndefined();
     expect(parsed.lines[0].romanization?.source).toBe("manual");
   });
 

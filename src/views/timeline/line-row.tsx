@@ -90,10 +90,8 @@ const LineRow: React.FC<LineRowProps> = ({ line, lineIndex, duration, onUpdateWo
 
   const mainWordRomanizations = useMemo<ReadonlyArray<string | undefined> | undefined>(() => {
     if (!romanizationScheme) return undefined;
-    const romaWords = line.romanization?.words;
-    if (!romaWords) return undefined;
-    return romaWords.map((w) => w.text);
-  }, [romanizationScheme, line.romanization?.words]);
+    return line.romanization?.wordTexts;
+  }, [romanizationScheme, line.romanization?.wordTexts]);
   const dragShiftPx = useTimelineStore((s) =>
     s.draggedGroupShift &&
     line.groupId !== undefined &&

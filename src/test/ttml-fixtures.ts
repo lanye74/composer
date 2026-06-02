@@ -62,10 +62,7 @@ function buildRomanizedJapaneseTtml(): string {
       ],
       romanization: {
         text: "yoru dakedo",
-        words: [
-          { text: "yoru", begin: 2, end: 3 },
-          { text: "dakedo", begin: 3, end: 6 },
-        ],
+        wordTexts: ["yoru", "dakedo"],
         source: "generated",
       },
     }),
@@ -79,11 +76,7 @@ function buildRomanizedJapaneseTtml(): string {
       ],
       romanization: {
         text: "yume wo mite",
-        words: [
-          { text: "yume", begin: 12, end: 13 },
-          { text: "wo", begin: 13, end: 14 },
-          { text: "mite", begin: 14, end: 18 },
-        ],
+        wordTexts: ["yume", "wo", "mite"],
         source: "generated",
       },
     }),

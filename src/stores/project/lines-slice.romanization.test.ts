@@ -5,7 +5,15 @@ describe("lines-slice: romanization", () => {
   beforeEach(() => {
     useProjectStore.getState().reset();
     useProjectStore.getState().setLines([
-      { id: "L1", text: "夜だけど", agentId: "v1" },
+      {
+        id: "L1",
+        text: "夜だけど",
+        agentId: "v1",
+        words: [
+          { text: "夜", begin: 0, end: 1 },
+          { text: "だけど", begin: 1, end: 2 },
+        ],
+      },
       { id: "L2", text: "hello", agentId: "v1" },
     ]);
   });
@@ -19,18 +27,15 @@ describe("lines-slice: romanization", () => {
     expect(line?.romanization).toEqual({ text: "yoru dakedo", source: "manual" });
   });
 
-  it("setLineRomanization with words attaches timing", () => {
+  it("setLineRomanization with wordTexts stores per-word texts", () => {
     useProjectStore.getState().setLineRomanization("L1", {
       text: "yoru dakedo",
       source: "generated",
-      words: [
-        { text: "yoru", begin: 0, end: 1 },
-        { text: "dakedo", begin: 1, end: 2 },
-      ],
+      wordTexts: ["yoru", "dakedo"],
     });
     const line = useProjectStore.getState().lines.find((l) => l.id === "L1");
-    expect(line?.romanization?.words?.length).toBe(2);
-    expect(line?.romanization?.words?.[0].text).toBe("yoru");
+    expect(line?.romanization?.wordTexts?.length).toBe(2);
+    expect(line?.romanization?.wordTexts?.[0]).toBe("yoru");
     expect(line?.romanization?.source).toBe("generated");
   });
 
