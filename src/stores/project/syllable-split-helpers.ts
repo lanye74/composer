@@ -1,3 +1,4 @@
+import { alignRomanizationToWords } from "@/domain/line/align-romanization";
 import { manualBackgroundWordEdit } from "@/domain/line/background";
 import { reconcileLine, type LyricLine } from "@/domain/line/model";
 import type { WordTiming } from "@/domain/word/timing";
@@ -40,10 +41,13 @@ function applyTargetsToLine(line: LyricLine, targets: SplitTarget[], splitPoints
     }
   }
 
+  const nextRomanization =
+    mainTrack !== line.words ? alignRomanizationToWords(line.romanization, mainTrack?.length ?? 0) : line.romanization;
   return reconcileLine({
     ...line,
     ...(mainTrack !== line.words ? { words: mainTrack } : {}),
     ...(bgTrack && bgTrack !== line.backgroundWords ? manualBackgroundWordEdit(bgTrack) : {}),
+    ...(nextRomanization !== line.romanization ? { romanization: nextRomanization } : {}),
   });
 }
 

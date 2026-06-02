@@ -1,4 +1,5 @@
 import { getLinkScope, isLinkedSibling } from "@/domain/group/linking";
+import { alignRomanizationToWords } from "@/domain/line/align-romanization";
 import { applyBackground, CLEARED_BACKGROUND, manualBackgroundWordEdit } from "@/domain/line/background";
 import { type LyricLine, reconcileLine } from "@/domain/line/model";
 import { reconstructLineText } from "@/domain/line/reconstruct-text";
@@ -20,7 +21,12 @@ type ExplicitTarget = { lineId: string; field: "words" | "backgroundWords"; word
 // stamps source "manual". A main-words write carries no provenance.
 function writeFieldWords(line: LyricLine, field: "words" | "backgroundWords", words: WordTiming[]): LyricLine {
   if (field === "backgroundWords") return reconcileLine({ ...line, ...manualBackgroundWordEdit(words) });
-  return reconcileLine({ ...line, words });
+  const nextRomanization = alignRomanizationToWords(line.romanization, words.length);
+  return reconcileLine({
+    ...line,
+    words,
+    ...(nextRomanization !== line.romanization ? { romanization: nextRomanization } : {}),
+  });
 }
 
 function expandTargetsToSyllableGroups(targets: ExplicitTarget[], linesById: Map<string, LyricLine>): ExplicitTarget[] {
@@ -78,12 +84,20 @@ function applyMoveToBg(line: LyricLine, wordIndices: number[], timeDelta: number
 
   const remainingMain = trimTrailingSpaceFromLast(line.words.filter((_, i) => !indexSet.has(i)));
   const mergedBg = resolveOverlapsForward(mergeWordsIntoTrack(line.backgroundWords ?? [], movedWords), duration);
+  const nextRomanization = alignRomanizationToWords(line.romanization, remainingMain.length);
 
-  return applyBackground(reconcileLine({ ...line, words: remainingMain }), {
-    words: mergedBg,
-    text: reconstructLineText(mergedBg, getSplitCharacter()),
-    source: "manual",
-  });
+  return applyBackground(
+    reconcileLine({
+      ...line,
+      words: remainingMain,
+      ...(nextRomanization !== line.romanization ? { romanization: nextRomanization } : {}),
+    }),
+    {
+      words: mergedBg,
+      text: reconstructLineText(mergedBg, getSplitCharacter()),
+      source: "manual",
+    },
+  );
 }
 
 function applyMoveFromBg(
@@ -105,8 +119,13 @@ function applyMoveFromBg(
 
   const remainingBg = trimTrailingSpaceFromLast(line.backgroundWords.filter((_, i) => !indexSet.has(i)));
   const mergedMain = resolveOverlapsForward(mergeWordsIntoTrack(line.words ?? [], movedWords), duration);
+  const nextRomanization = alignRomanizationToWords(line.romanization, mergedMain.length);
 
-  const withMain = reconcileLine({ ...line, words: mergedMain });
+  const withMain = reconcileLine({
+    ...line,
+    words: mergedMain,
+    ...(nextRomanization !== line.romanization ? { romanization: nextRomanization } : {}),
+  });
   if (remainingBg.length === 0) {
     return reconcileLine({ ...withMain, ...CLEARED_BACKGROUND });
   }
