@@ -1,8 +1,6 @@
 import type { LyricLine, RomanizationData } from "@/domain/line/model";
 import { reconcileLine } from "@/domain/line/model";
 import { isKnownScheme } from "@/domain/romanization/schemes";
-import type { WordTiming } from "@/domain/word/timing";
-import { parseTtmlTimestamp } from "@/utils/lyrics-parsers/ttml-helpers";
 
 // -- Helpers ------------------------------------------------------------------
 
@@ -26,30 +24,23 @@ function pickKnownTransliteration(container: Element): Element | null {
   return null;
 }
 
-function buildRomanizationFromTextNode(textEl: Element): RomanizationData | null {
-  const spans: Element[] = [];
+function buildRomanizationFromTextNode(textEl: Element, sourceWordCount: number | undefined): RomanizationData | null {
+  const spanTexts: string[] = [];
   for (const node of textEl.childNodes) {
-    if (node.nodeType === Node.ELEMENT_NODE && (node as Element).tagName.toLowerCase() === "span") {
-      const span = node as Element;
-      if (span.hasAttribute("begin")) spans.push(span);
-    }
+    if (node.nodeType !== Node.ELEMENT_NODE) continue;
+    const el = node as Element;
+    if (el.tagName.toLowerCase() !== "span") continue;
+    const text = el.textContent ?? "";
+    if (!text.trim()) continue;
+    spanTexts.push(text);
   }
 
-  if (spans.length > 0) {
-    const words: WordTiming[] = [];
-    for (const span of spans) {
-      const begin = parseTtmlTimestamp(span.getAttribute("begin") ?? "");
-      const end = parseTtmlTimestamp(span.getAttribute("end") ?? "");
-      const text = span.textContent ?? "";
-      if (!text.trim()) continue;
-      words.push({ text, begin, end });
+  if (spanTexts.length > 0) {
+    const joinedText = spanTexts.map((t) => t.trim()).join(" ");
+    if (sourceWordCount !== undefined && spanTexts.length === sourceWordCount) {
+      return { text: joinedText, wordTexts: spanTexts, source: "generated" };
     }
-    if (words.length === 0) return null;
-    return {
-      text: words.map((w) => w.text.trim()).join(" "),
-      words,
-      source: "generated",
-    };
+    return { text: joinedText, source: "generated" };
   }
 
   const raw = textEl.textContent?.trim() ?? "";
@@ -73,7 +64,7 @@ function attachRomanization(
     if (!forKey) continue;
     const idx = itunesKeyToIndex.get(forKey);
     if (idx === undefined) continue;
-    const romanization = buildRomanizationFromTextNode(textEl);
+    const romanization = buildRomanizationFromTextNode(textEl, out[idx].words?.length);
     if (!romanization) continue;
     out[idx] = reconcileLine({ ...out[idx], romanization });
   }
