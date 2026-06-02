@@ -4,7 +4,7 @@ import type { WordTiming } from "@/domain/word/timing";
 
 interface RomanizationData {
   text: string;
-  words?: WordTiming[];
+  wordTexts?: string[];
   source: "manual" | "generated";
 }
 
