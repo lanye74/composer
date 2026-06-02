@@ -33,7 +33,10 @@ describe("reconcileLine - romanization", () => {
       id: "L1",
       text: "夜だけど",
       agentId: "v1",
-      words: [{ text: "夜", begin: 0, end: 1 }],
+      words: [
+        { text: "夜", begin: 0, end: 1 },
+        { text: "だけど", begin: 1, end: 2 },
+      ],
       romanization: {
         text: "yoru dakedo",
         wordTexts: ["yoru", "dakedo"],

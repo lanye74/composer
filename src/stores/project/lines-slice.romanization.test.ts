@@ -73,10 +73,12 @@ describe("lines-slice: romanization", () => {
     expect(useProjectStore.getState().isDirtySinceHistory).toBe(true);
   });
 
-  it("setLineRomanization stores empty text cleanly without throwing", () => {
-    expect(() => useProjectStore.getState().setLineRomanization("L1", { text: "", source: "manual" })).not.toThrow();
+  it("setLineRomanization clears romanization when text is empty", () => {
+    useProjectStore.getState().setLineRomanization("L1", { text: "yoru", source: "manual" });
+    expect(useProjectStore.getState().lines.find((l) => l.id === "L1")?.romanization?.text).toBe("yoru");
+    useProjectStore.getState().setLineRomanization("L1", { text: "", source: "manual" });
     const line = useProjectStore.getState().lines.find((l) => l.id === "L1");
-    expect(line?.romanization).toEqual({ text: "", source: "manual" });
+    expect(line?.romanization).toBeUndefined();
   });
 
   it("setLineRomanization preserves other line fields", () => {

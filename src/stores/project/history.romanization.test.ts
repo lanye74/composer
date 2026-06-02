@@ -69,12 +69,15 @@ describe("history: romanization", () => {
     expect(line?.words?.[0].text).toBe("夜");
   });
 
-  it("setLineRomanizationWithHistory stores empty text cleanly without throwing", () => {
-    expect(() =>
-      useProjectStore.getState().setLineRomanizationWithHistory("L1", { text: "", source: "manual" }),
-    ).not.toThrow();
+  it("setLineRomanizationWithHistory clears romanization when text is empty", () => {
+    useProjectStore
+      .getState()
+      .setLines([{ id: "L1", text: "夜", agentId: "v1", words: [{ text: "夜", begin: 0, end: 1 }] }]);
+    useProjectStore.getState().setLineRomanizationWithHistory("L1", { text: "yoru", source: "manual" });
+    expect(useProjectStore.getState().lines.find((l) => l.id === "L1")?.romanization?.text).toBe("yoru");
+    useProjectStore.getState().setLineRomanizationWithHistory("L1", { text: "", source: "manual" });
     const line = useProjectStore.getState().lines.find((l) => l.id === "L1");
-    expect(line?.romanization).toEqual({ text: "", source: "manual" });
+    expect(line?.romanization).toBeUndefined();
   });
 
   it("setLineRomanizationWithHistory is a no-op when line is missing", () => {
