@@ -1,3 +1,4 @@
+import { alignRomanizationToWords } from "@/domain/line/align-romanization";
 import type { WordTiming } from "@/domain/word/timing";
 
 // -- Types --------------------------------------------------------------------
@@ -72,10 +73,13 @@ function enforceRomanizationInvariant(line: LyricLine): LyricLine {
   if (!r) return line;
   if (r.text.length === 0) return { ...line, romanization: undefined };
   if (r.wordTexts === undefined) return line;
-  const wordCount = line.words?.length;
-  if (wordCount !== undefined && r.wordTexts.length === wordCount) return line;
-  const { wordTexts: _wordTexts, ...rest } = r;
-  return { ...line, romanization: rest };
+  if (line.words === undefined) {
+    const { wordTexts: _wordTexts, ...rest } = r;
+    return { ...line, romanization: rest };
+  }
+  const aligned = alignRomanizationToWords(r, line.words.length);
+  if (aligned === r) return line;
+  return { ...line, romanization: aligned };
 }
 
 // -- Exports ------------------------------------------------------------------

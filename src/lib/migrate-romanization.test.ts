@@ -200,7 +200,7 @@ describe("migrateSavedProjectRomanization", () => {
   });
 
   describe("reconciler interaction", () => {
-    it("drops mismatched-count wordTexts after migration via reconcileLine", () => {
+    it("aligns mismatched-count wordTexts after migration via reconcileLine", () => {
       const v1 = makeV1WordSyncedProject();
       v1.lines[0].romanization!.words = [
         { text: "yo", begin: 0, end: 0.5 },
@@ -210,7 +210,7 @@ describe("migrateSavedProjectRomanization", () => {
       const out = migrateSavedProjectRomanization(v1);
       const r = out.lines[0].romanization;
       expect(r?.text).toBe("yoru dakedo");
-      expect(r?.wordTexts).toBeUndefined();
+      expect(r?.wordTexts).toEqual(["yo", "ru"]);
       expect((r as { words?: unknown }).words).toBeUndefined();
     });
 

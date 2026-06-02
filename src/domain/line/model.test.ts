@@ -92,7 +92,7 @@ describe("reconcileLine - romanization invariant", () => {
     expect(reconciled.romanization?.wordTexts).toEqual(["yoru", "dakedo"]);
   });
 
-  it("drops wordTexts (keeps text + source) when length does not match line.words", () => {
+  it("pads wordTexts with empty strings when length is less than line.words", () => {
     const reconciled = reconcileLine({
       id: "L1",
       text: "夜 だけど",
@@ -101,11 +101,31 @@ describe("reconcileLine - romanization invariant", () => {
         { text: "夜", begin: 0, end: 1 },
         { text: "だけど", begin: 1, end: 2 },
       ],
-      romanization: { text: "yoru dakedo something", wordTexts: ["yoru"], source: "generated" },
+      romanization: { text: "yoru", wordTexts: ["yoru"], source: "generated" },
     });
-    expect(reconciled.romanization?.text).toBe("yoru dakedo something");
+    expect(reconciled.romanization?.text).toBe("yoru");
     expect(reconciled.romanization?.source).toBe("generated");
-    expect(reconciled.romanization?.wordTexts).toBeUndefined();
+    expect(reconciled.romanization?.wordTexts).toEqual(["yoru", ""]);
+  });
+
+  it("truncates wordTexts when length exceeds line.words", () => {
+    const reconciled = reconcileLine({
+      id: "L1",
+      text: "夜 だけど",
+      agentId: "v1",
+      words: [
+        { text: "夜", begin: 0, end: 1 },
+        { text: "だけど", begin: 1, end: 2 },
+      ],
+      romanization: {
+        text: "yoru dakedo extra",
+        wordTexts: ["yoru", "dakedo", "extra"],
+        source: "generated",
+      },
+    });
+    expect(reconciled.romanization?.text).toBe("yoru dakedo extra");
+    expect(reconciled.romanization?.source).toBe("generated");
+    expect(reconciled.romanization?.wordTexts).toEqual(["yoru", "dakedo"]);
   });
 
   it("drops wordTexts when the line is line-synced (no words array)", () => {
@@ -166,7 +186,7 @@ describe("reconcileLine - romanization invariant", () => {
     expect(reconciled.romanization).toBe(romanization);
   });
 
-  it("does not mutate the input when dropping wordTexts (creates a new romanization object)", () => {
+  it("does not mutate the input when aligning wordTexts (creates a new romanization object)", () => {
     const original = { text: "yoru dakedo", wordTexts: ["yoru"], source: "generated" as const };
     const line = {
       id: "L1",
@@ -202,7 +222,7 @@ describe("reconcileLine - romanization invariant", () => {
     expect(reconciled.romanization?.wordTexts).toBeUndefined();
   });
 
-  it("drops only wordTexts on mismatch even when wordTexts is an empty array (length 0 vs words length > 0)", () => {
+  it("pads an empty wordTexts array up to line.words length", () => {
     const reconciled = reconcileLine({
       id: "L1",
       text: "夜",
@@ -210,7 +230,7 @@ describe("reconcileLine - romanization invariant", () => {
       words: [{ text: "夜", begin: 0, end: 1 }],
       romanization: { text: "yoru", wordTexts: [], source: "generated" },
     });
-    expect(reconciled.romanization?.wordTexts).toBeUndefined();
+    expect(reconciled.romanization?.wordTexts).toEqual([""]);
     expect(reconciled.romanization?.text).toBe("yoru");
   });
 });
