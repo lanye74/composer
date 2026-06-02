@@ -216,4 +216,23 @@ describe("syllable-aware wordTexts alignment", () => {
     const result = await gen.generateLine(line);
     expect(result.wordTexts).toEqual(["nǐ hǎo", "A"]);
   });
+
+  it("falls back cleanly on supplementary-plane codepoints (no crash, no garbled wordTexts)", async () => {
+    const gen = await createPinyinGenerator("zh-Latn-pinyin");
+    const line: LyricLine = {
+      id: "L1",
+      text: "𠮷田",
+      agentId: "v1",
+      words: [
+        { text: "𠮷", begin: 0, end: 1 },
+        { text: "田", begin: 1, end: 2 },
+      ],
+    };
+    const result = await gen.generateLine(line);
+    expect(typeof result.text).toBe("string");
+    expect(result.text.length).toBeGreaterThan(0);
+    if (result.wordTexts) {
+      expect(result.wordTexts).toHaveLength(2);
+    }
+  });
 });

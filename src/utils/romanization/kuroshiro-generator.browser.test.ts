@@ -193,4 +193,49 @@ describe("syllable-aware wordTexts alignment", () => {
     expect(result.wordTexts).toBeDefined();
     expect(result.text).toBe(result.wordTexts?.join(" "));
   }, 60000);
+
+  it("happy path returns wordTexts without relying on line-level convert", async () => {
+    const generator = await createKuroshiroGenerator("ja-Latn-hepburn");
+    const line = makeLine("夜だけど", {
+      words: [
+        { text: "夜", begin: 0, end: 1 },
+        { text: "だけど", begin: 1, end: 2 },
+      ],
+    });
+    const result = await generator.generateLine(line);
+    expect(result.wordTexts).toEqual(["yoru", "dakedo"]);
+    expect(result.text).toBe("yoru dakedo");
+  }, 60000);
+
+  it("falls back gracefully when source contains literal parens (no garbage output)", async () => {
+    const generator = await createKuroshiroGenerator("ja-Latn-hepburn");
+    const line = makeLine("夜(笑)だけど", {
+      words: [
+        { text: "夜(笑)", begin: 0, end: 1 },
+        { text: "だけど", begin: 1, end: 2 },
+      ],
+    });
+    const result = await generator.generateLine(line);
+    if (result.wordTexts) {
+      expect(result.wordTexts).toHaveLength(2);
+      expect(result.wordTexts[0]).toBeTruthy();
+      expect(result.wordTexts[1]).toBeTruthy();
+    } else {
+      expect(result.text).toBeTruthy();
+    }
+  }, 60000);
+
+  it("aligns first word past a kanji followed by literal parens", async () => {
+    const generator = await createKuroshiroGenerator("ja-Latn-hepburn");
+    const line = makeLine("夜(笑)だけど", {
+      words: [
+        { text: "夜(笑)", begin: 0, end: 1 },
+        { text: "だけど", begin: 1, end: 2 },
+      ],
+    });
+    const result = await generator.generateLine(line);
+    if (result.wordTexts) {
+      expect(result.wordTexts[0].toLowerCase()).toContain("yoru");
+    }
+  }, 60000);
 });

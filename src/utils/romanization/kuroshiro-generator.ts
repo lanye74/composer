@@ -17,6 +17,21 @@ const KUROSHIRO_USES_PROD_DICT_URLS = true;
 const OKURIGANA_START = "(";
 const OKURIGANA_END = ")";
 
+const KANJI_RANGES: ReadonlyArray<readonly [number, number]> = [
+  [0x3400, 0x4dbf],
+  [0x4e00, 0x9fff],
+];
+
+function isKanji(ch: string): boolean {
+  if (!ch) return false;
+  const cp = ch.codePointAt(0);
+  if (cp === undefined) return false;
+  for (const [lo, hi] of KANJI_RANGES) {
+    if (cp >= lo && cp <= hi) return true;
+  }
+  return false;
+}
+
 // -- Singleton ----------------------------------------------------------------
 
 let kuroshiroPromise: Promise<KuroshiroInstance> | null = null;
@@ -51,7 +66,7 @@ function parseOkuriganaToCharReadings(source: string, okurigana: string): CharRe
     const annoChar = annotation[annoIdx];
     if (annoChar !== srcChar) return null;
     annoIdx += 1;
-    if (annotation[annoIdx] === OKURIGANA_START) {
+    if (annotation[annoIdx] === OKURIGANA_START && isKanji(srcChar)) {
       annoIdx += 1;
       let reading = "";
       while (annoIdx < annotation.length && annotation[annoIdx] !== OKURIGANA_END) {
@@ -115,8 +130,6 @@ async function createKuroshiroGenerator(scheme: string): Promise<RomanizationGen
   const instance = await ensureKuroshiro();
 
   async function convertLineLevel(text: string): Promise<string> {
-    if (!text) return text;
-    if (!hasNonLatinScript(text)) return text;
     const raw = await instance.convert(text, { to: "romaji", mode: "spaced", romajiSystem });
     return typeof raw === "string" ? raw : text;
   }
@@ -128,14 +141,19 @@ async function createKuroshiroGenerator(scheme: string): Promise<RomanizationGen
       if (!fullText) return { text: fullText };
       if (!hasNonLatinScript(fullText)) return { text: fullText };
 
-      const lineRomaji = await convertLineLevel(fullText);
-      if (!line.words?.length) return { text: lineRomaji };
+      if (!line.words?.length) {
+        return { text: await convertLineLevel(fullText) };
+      }
 
       const strippedWords = line.words.map((w) => stripSplitCharacter(w.text));
-      if (strippedWords.join("") !== fullText) return { text: lineRomaji };
+      if (strippedWords.join("") !== fullText) {
+        return { text: await convertLineLevel(fullText) };
+      }
 
       const wordTexts = await alignToWords(instance, fullText, strippedWords, romajiSystem);
-      if (!wordTexts) return { text: lineRomaji };
+      if (!wordTexts) {
+        return { text: await convertLineLevel(fullText) };
+      }
 
       return { text: wordTexts.join(" "), wordTexts };
     },
