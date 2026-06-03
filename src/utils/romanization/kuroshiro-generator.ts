@@ -145,12 +145,13 @@ async function createKuroshiroGenerator(scheme: string): Promise<RomanizationGen
         return { text: await convertLineLevel(fullText) };
       }
 
-      const strippedWords = line.words.map((w) => stripSplitCharacter(w.text));
-      if (strippedWords.join("") !== fullText) {
+      const fullTextWithoutSpaces = fullText.replace(/\s+/g, "");
+      const strippedWords = line.words.map((w) => stripSplitCharacter(w.text).replace(/\s+/g, ""));
+      if (strippedWords.join("") !== fullTextWithoutSpaces) {
         return { text: await convertLineLevel(fullText) };
       }
 
-      const wordTexts = await alignToWords(instance, fullText, strippedWords, romajiSystem);
+      const wordTexts = await alignToWords(instance, fullTextWithoutSpaces, strippedWords, romajiSystem);
       if (!wordTexts) {
         return { text: await convertLineLevel(fullText) };
       }

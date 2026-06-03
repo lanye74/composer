@@ -63,21 +63,22 @@ async function createPinyinGenerator(scheme: string): Promise<RomanizationGenera
       if (!fullText) return { text: fullText };
       if (!hasNonLatinScript(fullText)) return { text: fullText };
 
-      const perCharPinyin = pinyin(fullText, {
+      const fullTextWithoutSpaces = fullText.replace(/\s+/g, "");
+      const perCharPinyin = pinyin(fullTextWithoutSpaces, {
         type: "array",
         multiple: false,
         toneType: profile.toneType,
       });
 
-      const sourceChars = Array.from(fullText);
+      const sourceChars = Array.from(fullTextWithoutSpaces);
       if (perCharPinyin.length !== sourceChars.length) {
         return { text: perCharPinyin.join(" ") };
       }
 
       if (!line.words?.length) return { text: perCharPinyin.join(" ") };
 
-      const stripped = line.words.map((w) => stripSplitCharacter(w.text));
-      if (stripped.join("") !== fullText) return { text: perCharPinyin.join(" ") };
+      const stripped = line.words.map((w) => stripSplitCharacter(w.text).replace(/\s+/g, ""));
+      if (stripped.join("") !== fullTextWithoutSpaces) return { text: perCharPinyin.join(" ") };
 
       const wordTexts: string[] = [];
       let cursor = 0;
