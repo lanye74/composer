@@ -76,8 +76,11 @@ function parseTtml(content: string, _fallbackDuration?: number): ParseResult {
 
   // Parse lyrics - look for <p> elements with timing
   const paragraphs = doc.getElementsByTagName("p");
+  const itunesKeyToIndex = new Map<string, number>();
 
   for (const p of paragraphs) {
+    const itunesKey =
+      p.getAttribute("itunes:key") ?? p.getAttributeNS("http://music.apple.com/lyric-ttml-internal", "key");
     const begin = parseTtmlTimestamp(p.getAttribute("begin") ?? "");
     const end = parseTtmlTimestamp(p.getAttribute("end") ?? "");
     const agentId = p.getAttribute("ttm:agent")?.replace("#", "") ?? "v1";
@@ -137,6 +140,7 @@ function parseTtml(content: string, _fallbackDuration?: number): ParseResult {
     const words = inferSyllableGroupIds(extractTimedWords(p, bgContainer));
 
     if (words.length > 0) {
+      if (itunesKey) itunesKeyToIndex.set(itunesKey, lines.length);
       lines.push(
         reconcileLine({
           id: generateLineId(),
@@ -166,6 +170,7 @@ function parseTtml(content: string, _fallbackDuration?: number): ParseResult {
       text = text.trim();
 
       if (text) {
+        if (itunesKey) itunesKeyToIndex.set(itunesKey, lines.length);
         lines.push(
           reconcileLine({
             id: generateLineId(),
@@ -182,6 +187,48 @@ function parseTtml(content: string, _fallbackDuration?: number): ParseResult {
       }
     }
   }
+
+  const transliterationEls = doc.getElementsByTagName("transliteration");
+  let lockedScheme: string | undefined;
+  let warnedConflict = false;
+  for (const tEl of transliterationEls) {
+    const blockScheme = tEl.getAttribute("xml:lang") ?? "";
+    if (!lockedScheme && blockScheme) lockedScheme = blockScheme;
+    if (lockedScheme && blockScheme && blockScheme !== lockedScheme) {
+      if (!warnedConflict) {
+        console.warn(
+          `[Composer] TTML has multiple transliteration schemes (${lockedScheme} and ${blockScheme}); ignoring non-primary scheme.`,
+        );
+        warnedConflict = true;
+      }
+      continue;
+    }
+    const outerFor = tEl.getAttribute("for");
+    const textEls = tEl.getElementsByTagName("text");
+    for (const textEl of textEls) {
+      const key = textEl.getAttribute("for") ?? outerFor ?? null;
+      if (!key) continue;
+      const targetIndex = itunesKeyToIndex.get(key);
+      if (targetIndex === undefined) continue;
+
+      const spans = Array.from(textEl.getElementsByTagName("span")).filter((s) => s.hasAttribute("begin"));
+      let romanizationText: string;
+      let wordTexts: string[] | undefined;
+      if (spans.length > 0) {
+        wordTexts = spans.map((s) => (s.textContent ?? "").trim());
+        romanizationText = wordTexts.join(" ");
+      } else {
+        romanizationText = (textEl.textContent ?? "").trim();
+      }
+
+      const target = lines[targetIndex];
+      lines[targetIndex] = reconcileLine({
+        ...target,
+        romanization: { text: romanizationText, wordTexts, source: "manual" },
+      });
+    }
+  }
+  if (lockedScheme) metadata.romanizationScheme = lockedScheme;
 
   return {
     lines,
