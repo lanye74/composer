@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { useProjectStore } from "@/stores/project";
 import { useSettingsStore } from "@/stores/settings";
+import { createLine } from "@/test/factories";
 import { TimelineHeader } from "@/views/timeline/timeline-header";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import { render } from "@/test/render";
@@ -78,5 +80,81 @@ describe("TimelineHeader", () => {
     const screen = await render(<TimelineHeader />);
     const snapButton = screen.container.querySelector("button[title*='Snap']") as HTMLElement;
     expect(snapButton.className).toContain("opacity-50");
+  });
+});
+
+// -- Primary text toggle -------------------------------------------------------
+
+describe("TimelineHeader primary text toggle", () => {
+  it("does not render the toggle when no line has romanization", async () => {
+    useProjectStore.setState({ lines: [createLine({ text: "Hello world" })] });
+    const screen = await render(<TimelineHeader />);
+    const toggle = screen.container.querySelector("button[aria-label*='primary word text']");
+    expect(toggle).toBeNull();
+  });
+
+  it("renders the toggle when at least one line has romanization text", async () => {
+    useProjectStore.setState({
+      lines: [createLine({ text: "夜" }), createLine({ text: "夢", romanization: { text: "yume", source: "manual" } })],
+    });
+    const screen = await render(<TimelineHeader />);
+    const toggle = screen.container.querySelector("button[aria-label*='primary word text']") as HTMLElement;
+    expect(toggle).not.toBeNull();
+  });
+
+  it("does not render the toggle when romanization text is empty", async () => {
+    useProjectStore.setState({
+      lines: [createLine({ text: "夜", romanization: { text: "", source: "manual" } })],
+    });
+    const screen = await render(<TimelineHeader />);
+    const toggle = screen.container.querySelector("button[aria-label*='primary word text']");
+    expect(toggle).toBeNull();
+  });
+
+  it("flips primaryWordText in the timeline store when clicked", async () => {
+    useProjectStore.setState({
+      lines: [createLine({ text: "夜", romanization: { text: "yoru", source: "manual" } })],
+    });
+    useTimelineStore.setState({ primaryWordText: "source" });
+    const screen = await render(<TimelineHeader />);
+    const toggle = screen.container.querySelector("button[aria-label*='primary word text']") as HTMLElement;
+    toggle.click();
+    await expect.poll(() => useTimelineStore.getState().primaryWordText).toBe("romaji");
+  });
+
+  it("aria-pressed reflects the current primaryWordText state", async () => {
+    useProjectStore.setState({
+      lines: [createLine({ text: "夜", romanization: { text: "yoru", source: "manual" } })],
+    });
+    useTimelineStore.setState({ primaryWordText: "source" });
+    const screen = await render(<TimelineHeader />);
+    const toggle = screen.container.querySelector("button[aria-label*='primary word text']") as HTMLElement;
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+    toggle.click();
+    await expect.poll(() => toggle.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("toggles back to source after a second click", async () => {
+    useProjectStore.setState({
+      lines: [createLine({ text: "夜", romanization: { text: "yoru", source: "manual" } })],
+    });
+    useTimelineStore.setState({ primaryWordText: "source" });
+    const screen = await render(<TimelineHeader />);
+    const toggle = screen.container.querySelector("button[aria-label*='primary word text']") as HTMLElement;
+    toggle.click();
+    await expect.poll(() => useTimelineStore.getState().primaryWordText).toBe("romaji");
+    toggle.click();
+    await expect.poll(() => useTimelineStore.getState().primaryWordText).toBe("source");
+  });
+
+  it("persists the toggle state on project metadata", async () => {
+    useProjectStore.setState({
+      lines: [createLine({ text: "夜", romanization: { text: "yoru", source: "manual" } })],
+    });
+    useTimelineStore.setState({ primaryWordText: "source" });
+    const screen = await render(<TimelineHeader />);
+    const toggle = screen.container.querySelector("button[aria-label*='primary word text']") as HTMLElement;
+    toggle.click();
+    await expect.poll(() => useProjectStore.getState().metadata.timelinePrimaryWordText).toBe("romaji");
   });
 });

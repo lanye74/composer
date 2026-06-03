@@ -17,6 +17,7 @@ import {
   IconChevronsUp,
   IconEye,
   IconFocusCentered,
+  IconLanguage,
   IconLayoutDistributeHorizontal,
   IconMagnet,
   IconMinus,
@@ -49,10 +50,17 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({ onImportLyrics }) => {
   const isBypassing = useTimelineStore((s) => s.isBypassing);
   const toggleSnapKeys = getEffectiveKeysArray("timeline.toggleSnap");
   const lines = useProjectStore((s) => s.lines);
+  const primaryWordText = useTimelineStore((s) => s.primaryWordText);
+  const setPrimaryWordText = useTimelineStore((s) => s.setPrimaryWordText);
   const collapsedInstances = useTimelineStore((s) => s.collapsedInstances);
   const setInstanceCollapsed = useTimelineStore((s) => s.setInstanceCollapsed);
 
   const hasUnexpandedLines = useMemo(() => lines.some((l) => !l.words?.length && l.text.trim().length > 0), [lines]);
+
+  const hasAnyRomanization = useMemo(
+    () => lines.some((l) => l.romanization?.text && l.romanization.text.length > 0),
+    [lines],
+  );
 
   const instanceKeys = useMemo(() => {
     const keys = new Set<string>();
@@ -186,6 +194,24 @@ const TimelineHeader: React.FC<TimelineHeaderProps> = ({ onImportLyrics }) => {
           <span>Snap</span>
           {showHints && <InlineKeyBadge keys={toggleSnapKeys} />}
         </Button>
+
+        {hasAnyRomanization && (
+          <Button
+            variant={primaryWordText === "romaji" ? "primary" : "ghost"}
+            size="sm"
+            hasIcon
+            className={cn(primaryWordText !== "romaji" && "opacity-60")}
+            onClick={() => setPrimaryWordText(primaryWordText === "romaji" ? "source" : "romaji")}
+            aria-label={
+              primaryWordText === "romaji" ? "Show source as primary word text" : "Show romaji as primary word text"
+            }
+            aria-pressed={primaryWordText === "romaji"}
+            title={primaryWordText === "romaji" ? "Show source" : "Show romaji"}
+          >
+            <IconLanguage size={16} />
+            <span>Romaji</span>
+          </Button>
+        )}
 
         {/* Import lyrics */}
         {onImportLyrics && (

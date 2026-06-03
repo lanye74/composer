@@ -1,5 +1,6 @@
 import { cn } from "@/utils/cn";
 import type { SyllablePosition } from "@/domain/word/syllable-groups";
+import { stripSplitCharacter } from "@/utils/split-character";
 import { selfKey } from "@/views/timeline/snap";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import { useDraggable } from "@dnd-kit/core";
@@ -79,7 +80,14 @@ const WordBlock: React.FC<WordBlockProps> = ({
   const naturalWidth = (end - begin) * zoom;
   const width = Math.max(naturalWidth, 4);
   const showText = naturalWidth >= 20;
-  const showRomanization = !!romanization && romanization.length > 0 && naturalWidth >= ROMAJI_VISIBILITY_THRESHOLD;
+  const primaryWordText = useTimelineStore((s) => s.primaryWordText);
+
+  const sourceText = stripSplitCharacter(text);
+  const hasRomaji = !!romanization && romanization.length > 0;
+  const showRomajiAsPrimary = primaryWordText === "romaji" && hasRomaji;
+  const primaryLabel = showRomajiAsPrimary ? (romanization as string) : sourceText;
+  const subtextLabel = showRomajiAsPrimary ? sourceText : hasRomaji ? (romanization as string) : "";
+  const showSubtext = subtextLabel.length > 0 && naturalWidth >= ROMAJI_VISIBILITY_THRESHOLD;
 
   const myKey = selfKey(lineId, wordIndex, trackType);
   const isSnapped = useTimelineStore((s) => s.snappedBlockId === myKey);
@@ -182,13 +190,18 @@ const WordBlock: React.FC<WordBlockProps> = ({
 
       {showText && (
         <span className="flex flex-col items-center justify-center min-w-0 px-1 pointer-events-none">
-          <span className="truncate max-w-full leading-tight">{text}</span>
-          {showRomanization && (
+          <span data-testid="word-primary" className="truncate max-w-full leading-tight">
+            {primaryLabel}
+          </span>
+          {showSubtext && (
             <span
               data-testid="word-romanization"
-              className="truncate text-ellipsis italic max-w-full text-[10px] leading-tight opacity-70 pointer-events-none"
+              className={cn(
+                "truncate text-ellipsis max-w-full text-[10px] leading-tight opacity-70 pointer-events-none",
+                !showRomajiAsPrimary && "italic",
+              )}
             >
-              {romanization}
+              {subtextLabel}
             </span>
           )}
         </span>
