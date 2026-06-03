@@ -69,10 +69,7 @@ describe("TTML romanization round-trip", () => {
     });
     const result = parseLyricsFile("song.ttml", first);
 
-    const reEmittedLines = result.lines.map((line, idx) => {
-      const original = lines[idx];
-      return reconcileLine({ ...line, id: original.id });
-    });
+    const reEmittedLines = result.lines.map((line) => reconcileLine({ ...line }));
 
     const second = generateTTML({
       metadata: { ...baseMeta, ...result.metadata },
@@ -97,6 +94,11 @@ describe("TTML romanization round-trip", () => {
     expect(first.words?.[0].end).toBeCloseTo(1.0, 3);
     expect(first.words?.[1].begin).toBeCloseTo(1.0, 3);
     expect(first.words?.[1].end).toBeCloseTo(1.8, 3);
+    const r = first.romanization;
+    expect(r).toBeDefined();
+    expect("words" in (r as object)).toBe(false);
+    expect("begin" in (r as object)).toBe(false);
+    expect("end" in (r as object)).toBe(false);
   });
 
   it("drops wordTexts on import when the source line's word count differs from the transliteration's span count", () => {
@@ -173,6 +175,6 @@ describe("TTML romanization round-trip", () => {
     expect(ttml).toMatch(/<transliteration for="L1"/);
     expect(ttml).not.toMatch(/<transliteration for="L2"/);
     const result = parseLyricsFile("song.ttml", ttml);
-    expect(result.lines.find((l) => l.text === "夢")?.romanization?.text).toBe("yume");
+    expect(result.lines[0].romanization?.text).toBe("yume");
   });
 });
