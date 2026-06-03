@@ -2,6 +2,13 @@ import type { WordTiming } from "@/domain/word/timing";
 
 // -- Types --------------------------------------------------------------------
 
+interface RomanizationData {
+  text: string;
+  wordTexts?: string[];
+  source: "manual" | "generated";
+  engine?: string;
+}
+
 interface LineFields {
   id: string;
   text: string;
@@ -13,6 +20,7 @@ interface LineFields {
   instanceIdx?: number;
   templateLineIdx?: number;
   detached?: boolean;
+  romanization?: RomanizationData;
 }
 
 // LyricLine is a discriminated union over its timing shape. The discriminant is
@@ -52,9 +60,23 @@ type LooseLine = LineFields & { words?: WordTiming[]; begin?: number; end?: numb
 // invariant: a line is never both word-synced and line-synced. A `words` array
 // (even empty) wins and drops begin/end.
 function reconcileLine(line: LooseLine): LyricLine {
-  const { words, begin, end, ...rest } = line;
-  if (words !== undefined) return { ...rest, words };
-  if (begin !== undefined && end !== undefined) return { ...rest, begin, end };
+  const { words, begin, end, romanization, ...rest } = line;
+  const reconciledRomanization = romanization ? reconcileRomanization(romanization, words) : undefined;
+  if (words !== undefined) {
+    return reconciledRomanization ? { ...rest, words, romanization: reconciledRomanization } : { ...rest, words };
+  }
+  if (begin !== undefined && end !== undefined) {
+    return reconciledRomanization
+      ? { ...rest, begin, end, romanization: reconciledRomanization }
+      : { ...rest, begin, end };
+  }
+  return reconciledRomanization ? { ...rest, romanization: reconciledRomanization } : rest;
+}
+
+function reconcileRomanization(r: RomanizationData, words: LooseLine["words"]): RomanizationData {
+  if (!r.wordTexts) return r;
+  if (words && r.wordTexts.length === words.length) return r;
+  const { wordTexts: _drop, ...rest } = r;
   return rest;
 }
 
@@ -62,4 +84,4 @@ function reconcileLine(line: LooseLine): LyricLine {
 
 export { reconcileLine };
 
-export type { LineFields, LineSyncedLine, LyricLine, LooseLine };
+export type { LineFields, LineSyncedLine, LyricLine, LooseLine, RomanizationData };
