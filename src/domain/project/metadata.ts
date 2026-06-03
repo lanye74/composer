@@ -8,6 +8,7 @@ interface ProjectMetadata {
   language?: string;
   romanizationScheme?: string;
   romanizationBannerDismissed?: boolean;
+  timelinePrimaryWordText?: "source" | "romaji";
 }
 
 // -- Exports ------------------------------------------------------------------

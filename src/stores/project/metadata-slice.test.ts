@@ -53,3 +53,33 @@ describe("metadata-slice: romanization", () => {
     expect(useProjectStore.getState().metadata.romanizationBannerDismissed).toBeUndefined();
   });
 });
+
+describe("metadata-slice: timelinePrimaryWordText", () => {
+  beforeEach(() => {
+    useProjectStore.getState().reset();
+  });
+
+  it("defaults to undefined on a fresh project", () => {
+    expect(useProjectStore.getState().metadata.timelinePrimaryWordText).toBeUndefined();
+  });
+
+  it("setMetadata round-trips the timelinePrimaryWordText field", () => {
+    useProjectStore.getState().setMetadata({ timelinePrimaryWordText: "romaji" });
+    expect(useProjectStore.getState().metadata.timelinePrimaryWordText).toBe("romaji");
+    useProjectStore.getState().setMetadata({ timelinePrimaryWordText: "source" });
+    expect(useProjectStore.getState().metadata.timelinePrimaryWordText).toBe("source");
+  });
+
+  it("setMetadata leaves the rest of metadata untouched when updating timelinePrimaryWordText", () => {
+    useProjectStore.getState().setMetadata({ title: "Night Dancer", artist: "imase" });
+    useProjectStore.getState().setMetadata({ timelinePrimaryWordText: "romaji" });
+    expect(useProjectStore.getState().metadata.title).toBe("Night Dancer");
+    expect(useProjectStore.getState().metadata.artist).toBe("imase");
+  });
+
+  it("reset clears the toggle back to undefined", () => {
+    useProjectStore.getState().setMetadata({ timelinePrimaryWordText: "romaji" });
+    useProjectStore.getState().reset();
+    expect(useProjectStore.getState().metadata.timelinePrimaryWordText).toBeUndefined();
+  });
+});

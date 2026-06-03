@@ -1,10 +1,13 @@
 import type { WordSelection } from "@/domain/selection/model";
 import { toggleWordSelection } from "@/domain/selection/set-ops";
+import { useProjectStore } from "@/stores/project";
 import { useSettingsStore } from "@/stores/settings";
 import type { ClipboardData, PasteMode } from "@/views/timeline/selection-types";
 import { create } from "zustand";
 
 // -- Types ---------------------------------------------------------------------
+
+type PrimaryWordText = "source" | "romaji";
 
 type ContextMenuTarget =
   | { kind: "word"; lineId: string; lineIndex: number; wordIndex: number; type: "word" | "bg" }
@@ -48,6 +51,7 @@ interface TimelineState {
   isBypassing: boolean;
   snappedBlockId: string | null;
   snappedAnchorTime: number | null;
+  primaryWordText: PrimaryWordText;
 }
 
 interface TimelineActions {
@@ -79,6 +83,7 @@ interface TimelineActions {
   setIsBypassing: (v: boolean) => void;
   setSnappedBlockId: (id: string | null) => void;
   setSnappedAnchorTime: (t: number | null) => void;
+  setPrimaryWordText: (text: PrimaryWordText) => void;
 }
 
 // -- Constants -----------------------------------------------------------------
@@ -120,6 +125,7 @@ const useTimelineStore = create<TimelineState & TimelineActions>((set, get) => {
     isBypassing: false,
     snappedBlockId: null,
     snappedAnchorTime: null,
+    primaryWordText: useProjectStore.getState().metadata.timelinePrimaryWordText ?? "source",
 
     setZoom: (zoom) => set({ zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom)) }),
     zoomIn: () => set((s) => ({ zoom: Math.min(MAX_ZOOM, s.zoom + ZOOM_STEP) })),
@@ -158,7 +164,19 @@ const useTimelineStore = create<TimelineState & TimelineActions>((set, get) => {
     setIsBypassing: (v) => set({ isBypassing: v }),
     setSnappedBlockId: (id) => set({ snappedBlockId: id }),
     setSnappedAnchorTime: (t) => set({ snappedAnchorTime: t }),
+    setPrimaryWordText: (next) => {
+      set({ primaryWordText: next });
+      useProjectStore.getState().setMetadata({ timelinePrimaryWordText: next });
+    },
   };
+});
+
+useProjectStore.subscribe((state, prev) => {
+  const next = state.metadata.timelinePrimaryWordText ?? "source";
+  const prevVal = prev?.metadata.timelinePrimaryWordText ?? "source";
+  if (next === prevVal) return;
+  if (useTimelineStore.getState().primaryWordText === next) return;
+  useTimelineStore.setState({ primaryWordText: next });
 });
 
 // -- Exports -------------------------------------------------------------------
