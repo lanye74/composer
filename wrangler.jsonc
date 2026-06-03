@@ -1,7 +1,9 @@
 {
   "name": "composer",
+  "main": "./worker.ts",
   "compatibility_date": "2026-01-09",
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist",
+    "binding": "ASSETS"
   }
 }
