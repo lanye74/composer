@@ -68,9 +68,17 @@ function generateTTML({ metadata, agents, lines, groups, granularity, minify = f
     }
     parts.push(`${ind(3)}</composer:groups>`);
   }
+  const displayIdByLineId = new Map<string, string>();
+  let displayCounter = 0;
+  for (const line of lines) {
+    if (!effectiveBounds(line)) continue;
+    displayCounter += 1;
+    displayIdByLineId.set(line.id, `L${displayCounter}`);
+  }
+
   if (emitTransliterations) {
     parts.push(emitGeneratorElement(__APP_VERSION__, ind));
-    parts.push(...emitTransliterationsBlock(metadata, lines, ind));
+    parts.push(...emitTransliterationsBlock(metadata, lines, ind, displayIdByLineId));
   }
   parts.push(`${ind(2)}</metadata>`);
   parts.push(`${ind(1)}</head>`);
@@ -84,8 +92,9 @@ function generateTTML({ metadata, agents, lines, groups, granularity, minify = f
     const timing = effectiveBounds(line);
     if (!timing) continue;
 
+    const displayId = displayIdByLineId.get(line.id) ?? line.id;
     const agentAttr = line.agentId ? ` ttm:agent="${escapeXml(line.agentId)}"` : "";
-    const keyAttr = ` itunes:key="${escapeXml(line.id)}"`;
+    const keyAttr = ` itunes:key="${escapeXml(displayId)}"`;
     const groupAttr = line.groupId
       ? ` composer:groupId="${escapeXml(line.groupId)}" composer:instanceIdx="${line.instanceIdx ?? 0}" composer:templateLineIdx="${line.templateLineIdx ?? 0}"${line.detached ? ' composer:detached="true"' : ""}`
       : "";

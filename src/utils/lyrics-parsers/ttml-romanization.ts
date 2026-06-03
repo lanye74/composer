@@ -81,10 +81,16 @@ function applyTransliterationsFromDoc(
 ): { lines: LyricLine[]; scheme?: string } {
   const container = findTransliterationsElement(doc);
   if (!container) return { lines };
-  const transliteration = pickKnownTransliteration(container);
-  if (!transliteration) return { lines };
-  const scheme = transliteration.getAttribute("xml:lang") ?? undefined;
-  const next = attachRomanization(lines, transliteration, itunesKeyToIndex);
+  const all = Array.from(container.getElementsByTagName("transliteration"));
+  let scheme: string | undefined;
+  let next = lines;
+  for (const transliteration of all) {
+    const lang = transliteration.getAttribute("xml:lang");
+    if (!lang || !isKnownScheme(lang)) continue;
+    if (scheme === undefined) scheme = lang;
+    if (lang !== scheme) continue;
+    next = attachRomanization(next, transliteration, itunesKeyToIndex);
+  }
   return { lines: next, scheme };
 }
 

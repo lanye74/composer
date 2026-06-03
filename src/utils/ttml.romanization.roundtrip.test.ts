@@ -198,7 +198,6 @@ describe("TTML round-trip · romanization", () => {
     ];
     const ttml = generateTTML({ metadata: baseMetadata, agents, lines, granularity: "word" });
 
-    expect(ttml).toContain('<transliteration xml:lang="ja-Latn-hepburn">');
     expect(ttml).toContain('<transliteration for="L1"');
     expect(ttml).toContain('<transliteration for="L2"');
 

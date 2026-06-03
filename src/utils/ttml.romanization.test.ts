@@ -43,7 +43,7 @@ describe("TTML export · transliterations", () => {
     });
 
     expect(ttml).toContain("<transliterations>");
-    expect(ttml).toContain('<transliteration xml:lang="ja-Latn-hepburn">');
+    expect(ttml).toContain('<transliteration for="L1" xml:lang="ja-Latn-hepburn">');
     expect(ttml).toContain('<text for="L1">');
     expect(ttml).toMatch(/<span begin="0:00\.000" end="0:01\.000">yoru<\/span>/);
     expect(ttml).toMatch(/<span begin="0:01\.000" end="0:02\.000">dakedo<\/span>/);
@@ -51,7 +51,7 @@ describe("TTML export · transliterations", () => {
     expect(ttml).toContain("</transliterations>");
   });
 
-  it("dual-emits per-line shape (braccato / better-lyrics) after the Apple shape", () => {
+  it("emits one transliteration element per line with for= on both outer and inner", () => {
     const ttml = generateTTML({
       metadata: { ...baseMetadata, romanizationScheme: "ja-Latn-hepburn" },
       agents: baseAgents,
@@ -85,28 +85,21 @@ describe("TTML export · transliterations", () => {
     expect(ttml).toContain('<transliteration for="L1" xml:lang="ja-Latn-hepburn">');
     expect(ttml).toContain('<transliteration for="L2" xml:lang="ja-Latn-hepburn">');
 
-    const appleOpenIdx = ttml.indexOf('<transliteration xml:lang="ja-Latn-hepburn">');
-    const perLineL1Idx = ttml.indexOf('<transliteration for="L1"');
-    const perLineL2Idx = ttml.indexOf('<transliteration for="L2"');
-    expect(appleOpenIdx).toBeGreaterThan(-1);
-    expect(perLineL1Idx).toBeGreaterThan(appleOpenIdx);
-    expect(perLineL2Idx).toBeGreaterThan(perLineL1Idx);
-
     const transliterationsOpen = ttml.indexOf("<transliterations>");
     const transliterationsClose = ttml.indexOf("</transliterations>");
     expect(transliterationsOpen).toBeGreaterThan(-1);
     expect(transliterationsClose).toBeGreaterThan(transliterationsOpen);
-    expect(perLineL1Idx).toBeGreaterThan(transliterationsOpen);
-    expect(perLineL1Idx).toBeLessThan(transliterationsClose);
-    expect(perLineL2Idx).toBeLessThan(transliterationsClose);
 
     const parsed = new DOMParser().parseFromString(ttml, "application/xml");
     expect(parsed.getElementsByTagName("parsererror").length).toBe(0);
     const all = parsed.getElementsByTagName("transliteration");
-    expect(all.length).toBe(3);
-    expect(all[0].getAttribute("for")).toBeNull();
-    expect(all[1].getAttribute("for")).toBe("L1");
-    expect(all[2].getAttribute("for")).toBe("L2");
+    expect(all.length).toBe(2);
+    expect(all[0].getAttribute("for")).toBe("L1");
+    expect(all[1].getAttribute("for")).toBe("L2");
+    const texts = parsed.getElementsByTagName("text");
+    for (const text of Array.from(texts)) {
+      expect(text.getAttribute("for")).not.toBeNull();
+    }
   });
 
   it("dual-emits per-line shape with inline text for line-synced romanization", () => {
@@ -130,7 +123,7 @@ describe("TTML export · transliterations", () => {
     const perLineOpenIdx = ttml.indexOf('<transliteration for="L1"');
     const perLineCloseIdx = ttml.indexOf("</transliteration>", perLineOpenIdx);
     const perLineSegment = ttml.slice(perLineOpenIdx, perLineCloseIdx);
-    expect(perLineSegment).toContain("<text>yoru dakedo</text>");
+    expect(perLineSegment).toContain('<text for="L1">yoru dakedo</text>');
   });
 
   it("dual-emits per-line shape with word spans for word-synced romanization", () => {
@@ -157,16 +150,16 @@ describe("TTML export · transliterations", () => {
     const perLineCloseIdx = ttml.indexOf("</transliteration>", perLineOpenIdx);
     const perLineSegment = ttml.slice(perLineOpenIdx, perLineCloseIdx);
     expect(perLineSegment).toContain('<span begin="0:00.000" end="0:01.000">yoru</span>');
-    expect(perLineSegment).not.toMatch(/<text for=/);
+    expect(perLineSegment).toContain('<text for="L1">');
   });
 
-  it("dual-emits per-line shape with escaped for and xml:lang attributes", () => {
+  it("emits sequential display IDs (L1, L2, ...) instead of the internal line.id", () => {
     const ttml = generateTTML({
       metadata: { ...baseMetadata, romanizationScheme: "ja-Latn-hepburn" },
       agents: baseAgents,
       lines: [
         {
-          id: "L<1&",
+          id: "85471fd5-d7f9-4bb6-a609-eb1b881c1969",
           text: "夜",
           agentId: "v1",
           begin: 0,
@@ -176,7 +169,9 @@ describe("TTML export · transliterations", () => {
       ],
       granularity: "line",
     });
-    expect(ttml).toContain('<transliteration for="L&lt;1&amp;" xml:lang="ja-Latn-hepburn">');
+    expect(ttml).toContain('<transliteration for="L1" xml:lang="ja-Latn-hepburn">');
+    expect(ttml).toContain('itunes:key="L1"');
+    expect(ttml).not.toContain("85471fd5-d7f9-4bb6-a609-eb1b881c1969");
     const parsed = new DOMParser().parseFromString(ttml, "application/xml");
     expect(parsed.getElementsByTagName("parsererror").length).toBe(0);
   });
@@ -270,7 +265,7 @@ describe("TTML export · transliterations", () => {
     expect(ttml).toContain("a &lt; b &amp; c");
   });
 
-  it("escapes `<` and `&` in the for attribute", () => {
+  it("does not leak internal line.id values into the exported for= attributes", () => {
     const ttml = generateTTML({
       metadata: { ...baseMetadata, romanizationScheme: "ja-Latn-hepburn" },
       agents: baseAgents,
@@ -286,7 +281,9 @@ describe("TTML export · transliterations", () => {
       ],
       granularity: "line",
     });
-    expect(ttml).toContain('<text for="L&lt;1&amp;"');
+    expect(ttml).not.toContain("L<1&");
+    expect(ttml).not.toContain("L&lt;1&amp;");
+    expect(ttml).toContain('<text for="L1"');
     const parsed = new DOMParser().parseFromString(ttml, "application/xml");
     expect(parsed.getElementsByTagName("parsererror").length).toBe(0);
   });
@@ -332,7 +329,7 @@ describe("TTML export · transliterations", () => {
       ],
       granularity: "line",
     });
-    expect(ttml).toContain('<transliteration xml:lang="zh-Latn-pinyin">');
+    expect(ttml).toContain('<transliteration for="L1" xml:lang="zh-Latn-pinyin">');
   });
 
   it("skips lines without romanization but still emits ones that do", () => {
@@ -453,7 +450,7 @@ describe("TTML export · transliterations v2 wordTexts shape", () => {
       granularity: "line",
     });
     expect(ttml).toContain('<text for="L1">yoru dakedo</text>');
-    const appleOpenIdx = ttml.indexOf('<transliteration xml:lang="ja-Latn-hepburn">');
+    const appleOpenIdx = ttml.indexOf('<transliteration for="L1" xml:lang="ja-Latn-hepburn">');
     const appleCloseIdx = ttml.indexOf("</transliteration>", appleOpenIdx);
     const appleSegment = ttml.slice(appleOpenIdx, appleCloseIdx);
     expect(appleSegment).not.toContain("<span");
@@ -478,14 +475,14 @@ describe("TTML export · transliterations v2 wordTexts shape", () => {
       lines,
       granularity: "word",
     });
-    const appleOpenIdx = ttml.indexOf('<transliteration xml:lang="ja-Latn-hepburn">');
+    const appleOpenIdx = ttml.indexOf('<transliteration for="L1" xml:lang="ja-Latn-hepburn">');
     const appleCloseIdx = ttml.indexOf("</transliteration>", appleOpenIdx);
     const appleSegment = ttml.slice(appleOpenIdx, appleCloseIdx);
     expect(appleSegment).toContain('<text for="L1">yoru dakedo something</text>');
     expect(appleSegment).not.toContain("<span");
   });
 
-  it("dual-emits Apple shape and per-line shape for the same line", () => {
+  it("emits a single transliteration element per line with for= on outer and inner", () => {
     const lines: LyricLine[] = [
       {
         id: "L1",
@@ -504,18 +501,16 @@ describe("TTML export · transliterations v2 wordTexts shape", () => {
       lines,
       granularity: "word",
     });
-    const appleIdx = ttml.indexOf('<transliteration xml:lang="ja-Latn-hepburn">');
-    const perLineIdx = ttml.indexOf('<transliteration for="L1"');
-    expect(appleIdx).toBeGreaterThan(-1);
-    expect(perLineIdx).toBeGreaterThan(appleIdx);
-    const appleClose = ttml.indexOf("</transliteration>", appleIdx);
-    const appleSeg = ttml.slice(appleIdx, appleClose);
-    const perLineClose = ttml.indexOf("</transliteration>", perLineIdx);
-    const perLineSeg = ttml.slice(perLineIdx, perLineClose);
-    expect(appleSeg).toContain('<text for="L1">');
-    expect(appleSeg).toContain('<span begin="0:00.000" end="0:01.000">yoru</span>');
-    expect(perLineSeg).toContain('<span begin="0:00.000" end="0:01.000">yoru</span>');
-    expect(perLineSeg).toContain('<span begin="0:01.000" end="0:02.000">dakedo</span>');
+    const parsed = new DOMParser().parseFromString(ttml, "application/xml");
+    const all = parsed.getElementsByTagName("transliteration");
+    expect(all.length).toBe(1);
+    expect(all[0].getAttribute("for")).toBe("L1");
+    const innerText = all[0].getElementsByTagName("text")[0];
+    expect(innerText.getAttribute("for")).toBe("L1");
+    const spans = innerText.getElementsByTagName("span");
+    expect(spans.length).toBe(2);
+    expect(spans[0].textContent).toBe("yoru");
+    expect(spans[1].textContent).toBe("dakedo");
   });
 
   it("does not emit a transliteration block when no line has romanization", () => {
@@ -617,14 +612,16 @@ describe("TTML export · transliterations v2 wordTexts shape", () => {
       lines,
       granularity: "word",
     });
-    const appleOpenIdx = ttml.indexOf('<transliteration xml:lang="ja-Latn-hepburn">');
-    const appleCloseIdx = ttml.indexOf("</transliteration>", appleOpenIdx);
-    const appleSegment = ttml.slice(appleOpenIdx, appleCloseIdx);
-    expect(appleSegment).toContain('<text for="L1">');
-    expect(appleSegment).toContain('<span begin="0:00.000" end="0:01.000">yoru</span>');
-    expect(appleSegment).toContain('<span begin="0:01.000" end="0:02.000">dakedo</span>');
-    expect(appleSegment).toContain('<text for="L2">yume</text>');
-    expect(ttml).toContain('<transliteration for="L1" xml:lang="ja-Latn-hepburn">');
-    expect(ttml).toContain('<transliteration for="L2" xml:lang="ja-Latn-hepburn">');
+    const l1OpenIdx = ttml.indexOf('<transliteration for="L1" xml:lang="ja-Latn-hepburn">');
+    const l1CloseIdx = ttml.indexOf("</transliteration>", l1OpenIdx);
+    const l1Segment = ttml.slice(l1OpenIdx, l1CloseIdx);
+    expect(l1Segment).toContain('<text for="L1">');
+    expect(l1Segment).toContain('<span begin="0:00.000" end="0:01.000">yoru</span>');
+    expect(l1Segment).toContain('<span begin="0:01.000" end="0:02.000">dakedo</span>');
+
+    const l2OpenIdx = ttml.indexOf('<transliteration for="L2" xml:lang="ja-Latn-hepburn">');
+    const l2CloseIdx = ttml.indexOf("</transliteration>", l2OpenIdx);
+    const l2Segment = ttml.slice(l2OpenIdx, l2CloseIdx);
+    expect(l2Segment).toContain('<text for="L2">yume</text>');
   });
 });
