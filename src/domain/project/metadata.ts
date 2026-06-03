@@ -6,6 +6,7 @@ interface ProjectMetadata {
   album: string;
   duration: number;
   language?: string;
+  romanizationScheme?: string;
 }
 
 // -- Exports ------------------------------------------------------------------

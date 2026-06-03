@@ -272,6 +272,19 @@ const createLinesSlice: StateCreator<ProjectStore, [], [], LinesState & LineActi
       if (newLines === state.lines) return state;
       return commitHistory(state, { lines: newLines });
     }),
+
+  setLineRomanizationWithHistory: (lineId, data) =>
+    set((state) => {
+      let touched = false;
+      const newLines = state.lines.map((line) => {
+        if (line.id !== lineId) return line;
+        touched = true;
+        const next: LooseLine = { ...line, romanization: data };
+        return reconcileLine(next);
+      });
+      if (!touched) return state;
+      return commitHistory(state, { lines: newLines });
+    }),
 });
 
 // -- Exports ------------------------------------------------------------------
