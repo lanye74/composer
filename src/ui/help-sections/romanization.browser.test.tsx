@@ -28,8 +28,6 @@ describe("RomanizationSection", () => {
 
   it("mentions the settings location for self-host", async () => {
     const screen = await render(<RomanizationSection />);
-    await expect
-      .poll(() => screen.container.textContent ?? "")
-      .toContain("Settings");
+    await expect.poll(() => screen.container.textContent ?? "").toContain("Settings");
   });
 });

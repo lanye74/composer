@@ -4,6 +4,7 @@ import { AdvancedSection } from "@/ui/settings/advanced-section";
 import { ConfirmationsSection } from "@/ui/settings/confirmations-section";
 import { GeneralSection } from "@/ui/settings/general-section";
 import { PlaybackSection } from "@/ui/settings/playback-section";
+import { RomanizationSettingsSection } from "@/ui/settings/romanization-section";
 import { StorageSection } from "@/ui/settings/storage-section";
 import { SyncSection } from "@/ui/settings/sync-section";
 import { TimelineSection } from "@/ui/settings/timeline-section";
@@ -13,6 +14,7 @@ import {
   IconClock,
   IconDeviceFloppy,
   IconKeyboard,
+  IconLanguage,
   IconLayoutRows,
   IconPlayerPlay,
   IconPlugConnected,
@@ -38,6 +40,7 @@ const SECTIONS: ModalNavSection[] = [
   { id: "shortcuts", label: "Shortcuts", icon: IconKeyboard },
   { id: "confirmations", label: "Confirmations", icon: IconAlertTriangle },
   { id: "storage", label: "Save & Storage", icon: IconDeviceFloppy },
+  { id: "romanization", label: "Romanization", icon: IconLanguage },
   { id: "advanced", label: "Advanced", icon: IconPlugConnected },
 ];
 
@@ -50,6 +53,7 @@ const SECTION_CONTENT: Record<string, React.FC<{ onResetTour: () => void; onClos
   shortcuts: ShortcutsSettingsSection,
   confirmations: ConfirmationsSection,
   storage: StorageSection,
+  romanization: RomanizationSettingsSection,
   advanced: AdvancedSection,
   general: GeneralSection,
 };

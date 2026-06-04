@@ -72,8 +72,8 @@ const RomanizationSection: React.FC = () => (
     <div>
       <h4 className={HEADING}>Editing manually</h4>
       <p className={PROSE}>
-        Click the romaji subrow under any line to edit the line-level text manually. Save commits a manual edit that
-        the server will not overwrite on the next bulk generate.
+        Click the romaji subrow under any line to edit the line-level text manually. Save commits a manual edit that the
+        server will not overwrite on the next bulk generate.
       </p>
       <p className={`${PROSE} mt-2`}>
         When a line is fully word-synced, you can press {ALT_KEY}+click on a single word (in the Edit subrow or on a
@@ -94,9 +94,10 @@ const RomanizationSection: React.FC = () => (
     <div>
       <h4 className={HEADING}>TTML export</h4>
       <p className={PROSE}>
-        Romanization round-trips through TTML. On export, each line with timing gets a sequential <code className={INLINE_CODE}>itunes:key</code>{" "}
-        (L1, L2, ...) and a single <code className={INLINE_CODE}>{`<transliteration>`}</code> block under{" "}
-        <code className={INLINE_CODE}>{`<head>`}</code>. Per-syllable readings carry source word timing, not independent
+        Romanization round-trips through TTML. On export, each line with timing gets a sequential{" "}
+        <code className={INLINE_CODE}>itunes:key</code> (L1, L2, ...) and a single{" "}
+        <code className={INLINE_CODE}>{"<transliteration>"}</code> block under{" "}
+        <code className={INLINE_CODE}>{"<head>"}</code>. Per-syllable readings carry source word timing, not independent
         timing. Re-importing a Composer-emitted TTML restores text, per-word readings, and the project scheme.
       </p>
     </div>
@@ -104,9 +105,9 @@ const RomanizationSection: React.FC = () => (
     <div>
       <h4 className={HEADING}>Self-hosting the backend</h4>
       <p className={PROSE}>
-        By default, requests go to the Composer-hosted backend. Self-hosters can point Composer at their own deploy
-        from Settings, under the Romanization section. Fields are an API base URL (e.g. your domain serving the
-        backend) and an optional Turnstile site key if your deploy enforces it.
+        By default, requests go to the Composer-hosted backend. Self-hosters can point Composer at their own deploy from
+        Settings, under the Romanization section. Fields are an API base URL (e.g. your domain serving the backend) and
+        an optional Turnstile site key if your deploy enforces it.
       </p>
     </div>
   </div>
