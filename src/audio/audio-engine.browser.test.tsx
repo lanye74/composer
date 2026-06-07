@@ -1,5 +1,6 @@
 import { AudioEngine } from "@/audio/audio-engine";
 import { useAudioStore } from "@/stores/audio";
+import { useSeparationStore } from "@/stores/separation";
 import { createAudioFile, createMp3File } from "@/test/audio-fixtures";
 import { allowConsole } from "@/test/console-guard";
 import { render } from "@/test/render";
@@ -120,5 +121,102 @@ describe("AudioEngine", () => {
     expect(elements[0]).toBe(audio);
     const served = await (await fetch(audio.src)).arrayBuffer();
     expect(served.byteLength).toBe(wav.size);
+  });
+
+  it("preserves playbackRate when switching separated audio tracks", async () => {
+    await render(<AudioEngine />);
+    useAudioStore.setState({
+      source: { type: "file", file: createAudioFile() },
+      playbackRate: 1.5,
+      volume: 0.4,
+      isMuted: true,
+    });
+    await waitFor(() => useAudioStore.getState().audioElement !== null);
+    const audio = useAudioStore.getState().audioElement as HTMLAudioElement;
+    await waitFor(() => audio.playbackRate === 1.5);
+
+    audio.playbackRate = 1;
+    audio.volume = 1;
+    audio.muted = false;
+    const vocalsUrl = URL.createObjectURL(createAudioFile("vocals.wav"));
+
+    try {
+      useSeparationStore.setState({
+        currentStem: "vocals",
+        availableStems: ["original", "vocals"],
+        stemUrls: { vocals: vocalsUrl },
+      });
+
+      await waitFor(() => audio.src === vocalsUrl);
+      expect(audio.playbackRate).toBe(1.5);
+      expect(audio.volume).toBe(0.4);
+      expect(audio.muted).toBe(true);
+    } finally {
+      URL.revokeObjectURL(vocalsUrl);
+    }
+  });
+
+  it("switches to the instrumental separated track", async () => {
+    await render(<AudioEngine />);
+    useAudioStore.setState({ source: { type: "file", file: createAudioFile() } });
+    await waitFor(() => useAudioStore.getState().audioElement !== null);
+    const audio = useAudioStore.getState().audioElement as HTMLAudioElement;
+    const instrumentalUrl = URL.createObjectURL(createAudioFile("instrumental.wav"));
+
+    try {
+      useSeparationStore.setState({
+        currentStem: "instrumental",
+        availableStems: ["original", "vocals", "instrumental"],
+        stemUrls: { instrumental: instrumentalUrl },
+      });
+
+      await waitFor(() => audio.src === instrumentalUrl);
+      expect(audio.src).toBe(instrumentalUrl);
+    } finally {
+      URL.revokeObjectURL(instrumentalUrl);
+    }
+  });
+
+  it("applies a preselected instrumental track after the audio element is created", async () => {
+    const instrumentalUrl = URL.createObjectURL(createAudioFile("instrumental.wav"));
+
+    try {
+      useSeparationStore.setState({
+        currentStem: "instrumental",
+        availableStems: ["original", "vocals", "instrumental"],
+        stemUrls: { instrumental: instrumentalUrl },
+      });
+      await render(<AudioEngine />);
+      useAudioStore.setState({ source: { type: "file", file: createAudioFile() } });
+
+      await waitFor(() => useAudioStore.getState().audioElement?.src === instrumentalUrl);
+      expect(useAudioStore.getState().audioElement?.src).toBe(instrumentalUrl);
+    } finally {
+      URL.revokeObjectURL(instrumentalUrl);
+    }
+  });
+
+  it("switches from a separated track back to the original source", async () => {
+    await render(<AudioEngine />);
+    useAudioStore.setState({ source: { type: "file", file: createAudioFile() } });
+    await waitFor(() => useAudioStore.getState().audioElement !== null);
+    const audio = useAudioStore.getState().audioElement as HTMLAudioElement;
+    const originalUrl = audio.src;
+    const vocalsUrl = URL.createObjectURL(createAudioFile("vocals.wav"));
+
+    try {
+      useSeparationStore.setState({
+        currentStem: "vocals",
+        availableStems: ["original", "vocals"],
+        stemUrls: { vocals: vocalsUrl },
+      });
+      await waitFor(() => audio.src === vocalsUrl);
+
+      useSeparationStore.setState({ currentStem: "original" });
+      await waitFor(() => audio.src === originalUrl);
+      expect(audio.src).toBe(originalUrl);
+    } finally {
+      URL.revokeObjectURL(vocalsUrl);
+    }
   });
 });

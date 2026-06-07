@@ -1,7 +1,7 @@
 {
   "name": "composer",
   "private": true,
-  "version": "1.21.4",
+  "version": "1.22.0",
   "type": "module",
   "scripts": {
     "dev": "vite-react-ssg dev",
@@ -36,6 +36,7 @@
     "motion": "^12.24.12",
     "nanoid": "^5.1.11",
     "obscenity": "^0.4.6",
+    "onnxruntime-web": "^1.26.0",
     "overlayscrollbars": "^2.14.0",
     "overlayscrollbars-react": "^0.5.6",
     "prism-react-renderer": "^2.4.1",
@@ -50,10 +51,18 @@
   "pnpm": {
     "ignoredBuiltDependencies": [
       "@biomejs/biome",
-      "esbuild"
+      "esbuild",
+      "protobufjs",
+      "sharp"
     ],
     "overrides": {
       "@braccato/parsers": "^0.1.2"
+    },
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "react-helmet-async>react": "19",
+        "react-helmet-async>react-dom": "19"
+      }
     }
   },
   "devDependencies": {

@@ -2,6 +2,7 @@ import { decodeMp3ToWav, isMp3File } from "@/audio/audio-decode";
 import { bindAudioStateEvents } from "@/audio/audio-state-events";
 import { scrubPreview } from "@/audio/scrub-preview";
 import { useAudioStore } from "@/stores/audio";
+import { useSeparationStore } from "@/stores/separation";
 import { useEffect, useRef } from "react";
 
 // -- Constants -----------------------------------------------------------------
@@ -13,17 +14,22 @@ const SLOW_DECODE_MS = 800;
 
 const AudioEngine: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const originalUrlRef = useRef<string | null>(null);
 
   const source = useAudioStore((s) => s.source);
   const isPlaying = useAudioStore((s) => s.isPlaying);
   const playbackRate = useAudioStore((s) => s.playbackRate);
   const volume = useAudioStore((s) => s.volume);
   const isMuted = useAudioStore((s) => s.isMuted);
+  const audioElement = useAudioStore((s) => s.audioElement);
   const setCurrentTime = useAudioStore((s) => s.setCurrentTime);
   const setDuration = useAudioStore((s) => s.setDuration);
   const setIsPlaying = useAudioStore((s) => s.setIsPlaying);
   const setIsLoading = useAudioStore((s) => s.setIsLoading);
   const registerAudioElement = useAudioStore((s) => s.registerAudioElement);
+
+  const currentStem = useSeparationStore((s) => s.currentStem);
+  const stemUrls = useSeparationStore((s) => s.stemUrls);
 
   useEffect(() => {
     if (!source) {
@@ -118,6 +124,7 @@ const AudioEngine: React.FC = () => {
       audio.style.display = "none";
       document.body.appendChild(audio);
       audioRef.current = audio;
+      originalUrlRef.current = objectUrl;
       registerAudioElement(audio);
       if (initialIsPlaying) audio.play().catch(() => undefined);
 
@@ -144,6 +151,7 @@ const AudioEngine: React.FC = () => {
         audio.src = "";
         audio.remove();
         if (audioRef.current === audio) audioRef.current = null;
+        if (originalUrlRef.current === objectUrl) originalUrlRef.current = null;
         URL.revokeObjectURL(objectUrl);
       };
     };
@@ -177,6 +185,27 @@ const AudioEngine: React.FC = () => {
     audio.volume = volume;
     audio.muted = isMuted;
   }, [playbackRate, volume, isMuted]);
+
+  useEffect(() => {
+    const audio = audioElement;
+    if (!audio) return;
+    const stemUrl = currentStem !== "original" ? stemUrls[currentStem] : null;
+    const targetUrl = stemUrl ?? originalUrlRef.current;
+    if (!targetUrl || audio.src === targetUrl) return;
+    const wasPlaying = !audio.paused;
+    const time = audio.currentTime;
+    const {
+      playbackRate: currentPlaybackRate,
+      volume: currentVolume,
+      isMuted: currentIsMuted,
+    } = useAudioStore.getState();
+    audio.src = targetUrl;
+    audio.currentTime = time;
+    audio.playbackRate = currentPlaybackRate;
+    audio.volume = currentVolume;
+    audio.muted = currentIsMuted;
+    if (wasPlaying) audio.play().catch(() => {});
+  }, [currentStem, stemUrls, audioElement]);
 
   return null;
 };
