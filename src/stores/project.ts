@@ -2,8 +2,10 @@ import { createAgentsSlice } from "@/stores/project/agents-slice";
 import { createDismissalsSlice } from "@/stores/project/dismissals-slice";
 import { createGroupsSlice } from "@/stores/project/groups-slice";
 import { createHistorySlice } from "@/stores/project/history-slice";
+import { createLibrarySlice } from "@/stores/project/library-slice";
 import { createLinesSlice } from "@/stores/project/lines-slice";
-import { createMetadataSlice, createProjectInitialState } from "@/stores/project/metadata-slice";
+import { createMetadataSlice } from "@/stores/project/metadata-slice";
+import { createProjectInitialState } from "@/stores/project/project-initial-state";
 import type { ProjectState, ProjectStore } from "@/stores/project/types";
 import { createUiSlice } from "@/stores/project/ui-slice";
 import { create } from "zustand";
@@ -26,6 +28,7 @@ const useProjectStore = create<ProjectStore>((set, get, api) => ({
   ...createUiSlice(set, get, api),
   ...createHistorySlice(set, get, api),
   ...createDismissalsSlice(set, get, api),
+  ...createLibrarySlice(set, get, api),
 }));
 
 export { useProjectStore, INITIAL_STATE };

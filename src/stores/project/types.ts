@@ -3,6 +3,7 @@ import type { LineTemplate, LinkGroup } from "@/domain/group/template";
 import type { LyricLine } from "@/domain/line/model";
 import type { ProjectMetadata } from "@/domain/project/metadata";
 import type { WordTiming } from "@/domain/word/timing";
+import type { AudioBlobStore } from "@/lib/audio-blob-store";
 
 // -- Store-local Types --------------------------------------------------------
 
@@ -66,6 +67,10 @@ interface HistoryState {
   // The next history-aware mutator snapshots this state into history first
   // so undo lands on the pending edit instead of skipping past it.
   isDirtySinceHistory: boolean;
+}
+
+interface LibraryState {
+  activeProjectId: string | undefined;
 }
 
 // -- Segregated Action Slices -------------------------------------------------
@@ -146,6 +151,14 @@ interface LineActions {
   }) => void;
 }
 
+interface SetActiveProjectDeps {
+  audioBlobs: AudioBlobStore;
+}
+
+interface LibraryActions {
+  setActiveProject: (id: string | undefined, deps?: SetActiveProjectDeps) => Promise<void>;
+}
+
 interface GroupActions {
   setGroups: (groups: LinkGroup[]) => void;
   addGroup: (group: LinkGroup) => void;
@@ -161,7 +174,14 @@ interface GroupActions {
 
 // -- Composed Store -----------------------------------------------------------
 
-type ProjectState = MetadataState & AgentsState & LinesState & GroupsState & UiState & DismissalsState & HistoryState;
+type ProjectState = MetadataState &
+  AgentsState &
+  LinesState &
+  GroupsState &
+  UiState &
+  DismissalsState &
+  HistoryState &
+  LibraryState;
 
 type ProjectActions = MetadataActions &
   AgentActions &
@@ -169,7 +189,8 @@ type ProjectActions = MetadataActions &
   DismissalActions &
   HistoryActions &
   LineActions &
-  GroupActions;
+  GroupActions &
+  LibraryActions;
 
 type ProjectStore = ProjectState & ProjectActions;
 
@@ -186,6 +207,7 @@ export type {
   UiState,
   DismissalsState,
   HistoryState,
+  LibraryState,
   MetadataActions,
   AgentActions,
   UiActions,
@@ -193,7 +215,10 @@ export type {
   HistoryActions,
   LineActions,
   GroupActions,
+  LibraryActions,
+  SetActiveProjectDeps,
   ProjectState,
+  ProjectActions,
   ProjectStore,
 };
 export { DEFAULT_SYLLABLE_SPLIT_DEFAULTS };
