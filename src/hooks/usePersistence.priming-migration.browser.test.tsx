@@ -4,11 +4,13 @@ import { parseLamePriming } from "@/audio/lame-priming";
 import { DEFAULT_AGENTS } from "@/domain/agent/colors";
 import type { WordTiming } from "@/domain/word/timing";
 import { usePersistence } from "@/hooks/usePersistence";
-import { clearCurrentProject, loadCurrentProject, saveAudioFile, saveCurrentProject } from "@/lib/persistence";
+import { getLibraryProject } from "@/lib/library-persistence";
+import { clearCurrentProject, saveAudioFile, saveCurrentProject } from "@/lib/persistence";
 import { loadCurrentProjectWithPrimingMigration } from "@/lib/priming-migration";
 import { useProjectStore } from "@/stores/project";
 import { useSettingsStore } from "@/stores/settings";
 import { createMp3File } from "@/test/audio-fixtures";
+import { seedLibraryProject } from "@/test/idb";
 
 // -- Helpers ------------------------------------------------------------------
 
@@ -107,8 +109,9 @@ describe("loadCurrentProjectWithPrimingMigration", () => {
   });
 });
 
-describe("usePersistence priming-stripped flag survives the post-load debounced save", () => {
+describe("usePersistence primingStripped flag survives the post-load debounced save", () => {
   const initialAutoSaveDelay = useSettingsStore.getState().autoSaveDelay;
+  const SEEDED_ID = "priming-project";
 
   beforeEach(async () => {
     useSettingsStore.setState({ autoSaveDelay: 30 });
@@ -127,54 +130,39 @@ describe("usePersistence priming-stripped flag survives the post-load debounced 
     throw new Error("project store never hydrated");
   }
 
-  it("regression: post-migration debounced save does not overwrite primingStripped with false", async () => {
-    const mp3 = createMp3File();
-    expect(parseLamePriming(await mp3.arrayBuffer()).samples).toBeGreaterThan(0);
-    await saveAudioFile(mp3);
-    await saveCurrentProject(
-      { title: "race", artist: "", album: "", duration: 0 },
-      DEFAULT_AGENTS,
-      [{ id: "L1", text: "hi", agentId: DEFAULT_AGENTS[0].id }],
-      [],
-      "word",
-      { applyToAll: false, caseInsensitive: false },
-      { kind: "file", name: "silence.mp3" },
-      [],
-      [],
-      "original",
-      false,
-    );
+  it("regression: library boot's debounced save does not overwrite primingStripped with false", async () => {
+    await seedLibraryProject(SEEDED_ID, {
+      metadata: { title: "race", artist: "", album: "", duration: 0 },
+      agents: DEFAULT_AGENTS,
+      lines: [{ id: "L1", text: "hi", agentId: DEFAULT_AGENTS[0].id }],
+      granularity: "word",
+      audioSource: { kind: "file", name: "silence.mp3" },
+      primingStripped: true,
+    });
 
     await renderHook(() => usePersistence());
     await waitForProjectHydration();
     await new Promise((r) => setTimeout(r, 150));
 
-    const reloaded = await loadCurrentProject();
+    const reloaded = await getLibraryProject(SEEDED_ID);
     expect(reloaded?.primingStripped).toBe(true);
   });
 
   it("flag stays true after debounced save even when audio has zero priming", async () => {
-    const noPrimingMp3 = new File([new Uint8Array([0, 1, 2, 3])], "not-mp3.bin", { type: "audio/mpeg" });
-    await saveAudioFile(noPrimingMp3);
-    await saveCurrentProject(
-      { title: "race-zero", artist: "", album: "", duration: 0 },
-      DEFAULT_AGENTS,
-      [{ id: "L1", text: "hi", agentId: DEFAULT_AGENTS[0].id }],
-      [],
-      "word",
-      { applyToAll: false, caseInsensitive: false },
-      { kind: "file", name: "not-mp3.bin" },
-      [],
-      [],
-      "original",
-      false,
-    );
+    await seedLibraryProject(SEEDED_ID, {
+      metadata: { title: "race-zero", artist: "", album: "", duration: 0 },
+      agents: DEFAULT_AGENTS,
+      lines: [{ id: "L1", text: "hi", agentId: DEFAULT_AGENTS[0].id }],
+      granularity: "word",
+      audioSource: { kind: "file", name: "not-mp3.bin" },
+      primingStripped: true,
+    });
 
     await renderHook(() => usePersistence());
     await waitForProjectHydration();
     await new Promise((r) => setTimeout(r, 150));
 
-    const reloaded = await loadCurrentProject();
+    const reloaded = await getLibraryProject(SEEDED_ID);
     expect(reloaded?.primingStripped).toBe(true);
   });
 });

@@ -80,7 +80,9 @@ describe("library-save · happy paths", () => {
 
 describe("library-save · edge cases", () => {
   it("no-op when activeProjectId is undefined (save)", async () => {
-    await putLibraryProject(makeProject("p1", { metadata: { title: "Untouched", artist: "", album: "", duration: 0 } }));
+    await putLibraryProject(
+      makeProject("p1", { metadata: { title: "Untouched", artist: "", album: "", duration: 0 } }),
+    );
     expect(useProjectStore.getState().activeProjectId).toBeUndefined();
 
     await saveActiveProject();

@@ -1,4 +1,6 @@
-import { OpfsAudioBlobStore } from "@/lib/audio-blob-store";
+import { type AudioBlobStore, OpfsAudioBlobStore } from "@/lib/audio-blob-store";
+import { migrateSingleSlotToLibrary } from "@/lib/library-migration";
+import { getLibraryProject, listLibraryProjects } from "@/lib/library-persistence";
 import { saveActiveProject, saveActiveProjectAudio } from "@/lib/library-save";
 import { cancelPendingSave, debouncedSave, flushPendingSave } from "@/lib/persistence-debounce";
 import { markPersistenceSettled } from "@/lib/persistence-settled";
@@ -7,6 +9,7 @@ import { useProjectStore } from "@/stores/project";
 import { useSeparationStore } from "@/stores/separation";
 import { useSettingsStore } from "@/stores/settings";
 import { useEffect } from "react";
+import { toast } from "sonner";
 
 // -- Constants ----------------------------------------------------------------
 
@@ -15,6 +18,46 @@ const LOG_PREFIX = "[Persistence]";
 // -- Module singletons --------------------------------------------------------
 
 const audioBlobs = new OpfsAudioBlobStore();
+let isBooting = false;
+let activeUnsubscribers: Array<() => void> = [];
+
+function attachSubscriptions(): void {
+  detachSubscriptions();
+  const unsubProject = useProjectStore.subscribe((state) => {
+    if (!state.isDirty) return;
+    commitProjectSave();
+  });
+  const unsubSeparation = useSeparationStore.subscribe((state, prevState) => {
+    if (state.currentStem === prevState.currentStem) return;
+    commitProjectSaveNow();
+  });
+  let prevSource = useAudioStore.getState().source;
+  const unsubAudio = useAudioStore.subscribe((state) => {
+    if (state.source === prevSource) return;
+    const previous = prevSource;
+    prevSource = state.source;
+    if (!useProjectStore.getState().activeProjectId) return;
+    const nextFile = playableFile(state.source);
+    const prevFile = playableFile(previous);
+    if (nextFile && nextFile !== prevFile) {
+      saveActiveProjectAudio(nextFile, { audioBlobs }).catch((err) =>
+        console.error(`${LOG_PREFIX} audio save failed:`, err),
+      );
+      return;
+    }
+    if (!nextFile && prevFile) {
+      saveActiveProjectAudio(null, { audioBlobs }).catch((err) =>
+        console.error(`${LOG_PREFIX} audio clear failed:`, err),
+      );
+    }
+  });
+  activeUnsubscribers = [unsubProject, unsubSeparation, unsubAudio];
+}
+
+function detachSubscriptions(): void {
+  for (const fn of activeUnsubscribers) fn();
+  activeUnsubscribers = [];
+}
 
 // -- Helpers ------------------------------------------------------------------
 
@@ -26,6 +69,7 @@ function playableFile(source: AudioSource): File | null {
 }
 
 function shouldSave(): boolean {
+  if (isBooting) return false;
   const projectState = useProjectStore.getState();
   if (!projectState.activeProjectId) return false;
   const liveAudioSource = useAudioStore.getState().source;
@@ -45,70 +89,74 @@ function commitProjectSaveNow(): void {
   saveActiveProject().catch((err) => console.error(LOG_PREFIX, "Immediate save failed:", err));
 }
 
+async function resumeMostRecentProject(deps: { audioBlobs: AudioBlobStore }): Promise<void> {
+  const result = await migrateSingleSlotToLibrary(deps);
+  let resumeId = result.migratedId;
+  if (!resumeId) {
+    const list = await listLibraryProjects();
+    if (list.length > 0) resumeId = list[0].id;
+  }
+  if (!resumeId) return;
+
+  await useProjectStore.getState().setActiveProject(resumeId, deps);
+
+  const loaded = await getLibraryProject(resumeId);
+  if (loaded?.currentStem) {
+    useSeparationStore.getState().restoreCurrentStem(loaded.currentStem);
+  }
+
+  if (loaded?.audioBytesCached) {
+    const bytes = await deps.audioBlobs.get(resumeId);
+    if (bytes) {
+      const name =
+        loaded.audioSource?.kind === "file"
+          ? loaded.audioSource.name
+          : loaded.audioSource?.kind === "youtube"
+            ? `${loaded.audioSource.videoId}.opus`
+            : "audio.bin";
+      const file = new File([bytes], name);
+      if (loaded.audioSource?.kind === "youtube") {
+        useAudioStore.getState().setYouTubeSource(loaded.audioSource.videoId, file);
+      } else {
+        useAudioStore.getState().setSource({ type: "file", file });
+      }
+    }
+  } else if (loaded?.audioSource?.kind === "youtube") {
+    useAudioStore.getState().setYouTubeSource(loaded.audioSource.videoId);
+  }
+
+  if (result.migratedId) {
+    toast("Your project is now in your library");
+  }
+}
+
 // -- Hook ---------------------------------------------------------------------
 
 function usePersistence(): void {
   useEffect(() => {
+    isBooting = true;
+    let cancelled = false;
     void (async () => {
       try {
-        // Placeholder for Task 3.3: migration + library-load flow.
-        // Until 3.3 lands, leave this as a no-op so existing tests can mount
-        // the hook without crashing.
+        await resumeMostRecentProject({ audioBlobs });
       } catch (err) {
         console.error(`${LOG_PREFIX} initial load failed:`, err);
-      } finally {
-        if (import.meta.env.DEV) {
-          console.log(`${LOG_PREFIX} settled`, {
-            title: useProjectStore.getState().metadata.title,
-            source: useAudioStore.getState().source,
-          });
-        }
-        markPersistenceSettled();
       }
+      if (cancelled) return;
+      isBooting = false;
+      attachSubscriptions();
+      if (import.meta.env.DEV) {
+        console.log(`${LOG_PREFIX} settled`, {
+          title: useProjectStore.getState().metadata.title,
+          source: useAudioStore.getState().source,
+        });
+      }
+      markPersistenceSettled();
     })();
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = useProjectStore.subscribe((state) => {
-      if (!state.isDirty) return;
-      commitProjectSave();
-    });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = useSeparationStore.subscribe((state, prevState) => {
-      if (state.currentStem === prevState.currentStem) return;
-      commitProjectSaveNow();
-    });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    let prevSource = useAudioStore.getState().source;
-    const unsubscribe = useAudioStore.subscribe((state) => {
-      if (state.source === prevSource) return;
-      const previous = prevSource;
-      prevSource = state.source;
-
-      if (!useProjectStore.getState().activeProjectId) return;
-
-      const nextFile = playableFile(state.source);
-      const prevFile = playableFile(previous);
-
-      if (nextFile && nextFile !== prevFile) {
-        saveActiveProjectAudio(nextFile, { audioBlobs }).catch((err) =>
-          console.error(`${LOG_PREFIX} audio save failed:`, err),
-        );
-        return;
-      }
-      if (!nextFile && prevFile) {
-        saveActiveProjectAudio(null, { audioBlobs }).catch((err) =>
-          console.error(`${LOG_PREFIX} audio clear failed:`, err),
-        );
-      }
-    });
-    return () => unsubscribe();
+    return () => {
+      cancelled = true;
+      detachSubscriptions();
+    };
   }, []);
 
   useEffect(() => {

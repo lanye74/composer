@@ -30,9 +30,9 @@ async function resetAllStores(): Promise<void> {
   useShortcutBindingsStore.setState({ overrides: {} });
 
   useAuthStore.getState().clear();
+  useProjectStore.setState(PROJECT_INITIAL_STATE);
   useAudioStore.getState().reset();
   useSeparationStore.getState().reset();
-  useProjectStore.setState(PROJECT_INITIAL_STATE);
 
   useConfirmStore.setState({ isOpen: false, options: null, resolve: null, queue: [] });
   useDivergenceStore.setState({ isOpen: false, options: null, resolve: null });
