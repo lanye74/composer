@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   DB_VERSION,
+  LIBRARY_PROJECTS_STORE,
   PROJECT_STORE_NAME,
   STEM_STORE_NAME,
   deleteFromStore,
+  getAllFromStore,
   getFromStore,
   openDB,
   setInStore,
@@ -16,11 +18,12 @@ import {
 // -- Schema -------------------------------------------------------------------
 
 describe("persistence-idb · schema", () => {
-  it("openDB returns a db at the expected version with both stores", async () => {
+  it("openDB returns a db at the expected version with all stores", async () => {
     const db = await openDB();
     expect(db.version).toBe(DB_VERSION);
     expect(db.objectStoreNames.contains(PROJECT_STORE_NAME)).toBe(true);
     expect(db.objectStoreNames.contains(STEM_STORE_NAME)).toBe(true);
+    expect(db.objectStoreNames.contains(LIBRARY_PROJECTS_STORE)).toBe(true);
     db.close();
   });
 
@@ -32,6 +35,7 @@ describe("persistence-idb · schema", () => {
     expect(second.version).toBe(DB_VERSION);
     expect(second.objectStoreNames.contains(PROJECT_STORE_NAME)).toBe(true);
     expect(second.objectStoreNames.contains(STEM_STORE_NAME)).toBe(true);
+    expect(second.objectStoreNames.contains(LIBRARY_PROJECTS_STORE)).toBe(true);
     second.close();
   });
 });
@@ -88,5 +92,28 @@ describe("persistence-idb · store isolation", () => {
     await deleteFromStore(PROJECT_STORE_NAME, "shared");
     expect(await getFromStore(PROJECT_STORE_NAME, "shared")).toBeUndefined();
     expect(await getFromStore(STEM_STORE_NAME, "shared")).toBe("s");
+  });
+});
+
+// -- getAllFromStore ----------------------------------------------------------
+
+describe("persistence-idb · getAllFromStore", () => {
+  it("returns [] when the store is empty", async () => {
+    expect(await getAllFromStore<string>(PROJECT_STORE_NAME)).toEqual([]);
+  });
+
+  it("returns every value present in the store", async () => {
+    await setInStore(PROJECT_STORE_NAME, "k1", "a");
+    await setInStore(PROJECT_STORE_NAME, "k2", "b");
+    await setInStore(PROJECT_STORE_NAME, "k3", "c");
+    const all = await getAllFromStore<string>(PROJECT_STORE_NAME);
+    expect(all.toSorted()).toEqual(["a", "b", "c"]);
+  });
+
+  it("does not include values from other stores", async () => {
+    await setInStore(PROJECT_STORE_NAME, "k", "project");
+    await setInStore(STEM_STORE_NAME, "k", "stem");
+    const projectAll = await getAllFromStore<string>(PROJECT_STORE_NAME);
+    expect(projectAll).toEqual(["project"]);
   });
 });

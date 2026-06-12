@@ -1,9 +1,10 @@
 // -- Constants ----------------------------------------------------------------
 
 const DB_NAME = "ttml-composer";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const PROJECT_STORE_NAME = "projects";
 const STEM_STORE_NAME = "separated-stems";
+const LIBRARY_PROJECTS_STORE = "library-projects";
 
 // -- Connection ---------------------------------------------------------------
 
@@ -19,6 +20,9 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STEM_STORE_NAME)) {
         db.createObjectStore(STEM_STORE_NAME);
+      }
+      if (!db.objectStoreNames.contains(LIBRARY_PROJECTS_STORE)) {
+        db.createObjectStore(LIBRARY_PROJECTS_STORE);
       }
     };
   });
@@ -68,6 +72,31 @@ async function deleteFromStore(storeName: string, key: string): Promise<void> {
   });
 }
 
+async function getAllFromStore<T>(storeName: string): Promise<T[]> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, "readonly");
+    const request = transaction.objectStore(storeName).getAll();
+    request.onerror = () => {
+      db.close();
+      reject(request.error);
+    };
+    request.onsuccess = () => resolve(request.result as T[]);
+    transaction.oncomplete = () => db.close();
+  });
+}
+
 // -- Exports ------------------------------------------------------------------
 
-export { DB_NAME, DB_VERSION, PROJECT_STORE_NAME, STEM_STORE_NAME, openDB, getFromStore, setInStore, deleteFromStore };
+export {
+  DB_NAME,
+  DB_VERSION,
+  LIBRARY_PROJECTS_STORE,
+  PROJECT_STORE_NAME,
+  STEM_STORE_NAME,
+  openDB,
+  getFromStore,
+  setInStore,
+  deleteFromStore,
+  getAllFromStore,
+};
