@@ -115,4 +115,16 @@ describe("App", () => {
     const screen = await render(<App />);
     await expect.poll(() => screen.container.textContent ?? "").toMatch(/Drop an audio file to start|Your library/);
   });
+
+  it("clicking the header Library icon switches from in-project to library view", async () => {
+    localStorage.setItem("composer-tour-seen", "true");
+    await putLibraryProject(makeProject({ id: "toggle-me", lastOpenedAt: 100 }));
+    useProjectStore.setState({ activeTab: "import", activeProjectId: "toggle-me" });
+    useUIStore.setState({ viewingLibrary: false });
+    const screen = await render(<App />);
+    await expect.poll(() => screen.container.querySelector("nav")).not.toBeNull();
+    await screen.getByRole("button", { name: /Library/i }).click();
+    await expect.poll(() => useUIStore.getState().viewingLibrary).toBe(true);
+    await expect.poll(() => screen.container.textContent ?? "").toMatch(/Your library/);
+  });
 });
