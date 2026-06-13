@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { LibraryProject } from "@/domain/project/library-project";
 import { putLibraryProject } from "@/lib/library-persistence";
 import { LibraryPage } from "@/pages/library/library-page";
+import { createLine } from "@/test/factories";
 import { render } from "@/test/render";
 
 // -- Helpers ------------------------------------------------------------------
@@ -88,5 +89,83 @@ describe("LibraryPage", () => {
     const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={onNew} />);
     await screen.getByRole("button", { name: /New project/ }).click();
     expect(onNew).toHaveBeenCalled();
+  });
+
+  describe("filter chips", () => {
+    it("hides synced projects when the 'Empty' chip is active", async () => {
+      await putLibraryProject(
+        makeProject({
+          id: "synced-1",
+          lines: [createLine({ text: "a", begin: 0, end: 1 })],
+          lastOpenedAt: 100,
+        }),
+      );
+      await putLibraryProject(
+        makeProject({
+          id: "empty-1",
+          lines: [createLine({ text: "b" })],
+          lastOpenedAt: 200,
+        }),
+      );
+
+      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+
+      await expect.element(screen.getByText("Title-synced-1")).toBeInTheDocument();
+      await screen.getByRole("tab", { name: "Empty" }).click();
+      await expect.element(screen.getByText("Title-empty-1")).toBeInTheDocument();
+      await expect.poll(() => screen.container.querySelector("button")?.textContent).toBeDefined();
+      expect(screen.container.textContent ?? "").not.toContain("Title-synced-1");
+    });
+
+    it("shows only in-progress projects when the chip is active", async () => {
+      await putLibraryProject(
+        makeProject({
+          id: "synced-2",
+          lines: [createLine({ text: "a", begin: 0, end: 1 })],
+        }),
+      );
+      await putLibraryProject(
+        makeProject({
+          id: "partial-2",
+          lines: [createLine({ text: "a", begin: 0, end: 1 }), createLine({ text: "b" })],
+        }),
+      );
+
+      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      await screen.getByRole("tab", { name: "In progress" }).click();
+      await expect.element(screen.getByText("Title-partial-2")).toBeInTheDocument();
+      expect(screen.container.textContent ?? "").not.toContain("Title-synced-2");
+    });
+  });
+
+  describe("sort", () => {
+    it("re-orders projects when 'Title A to Z' is picked from the sort menu", async () => {
+      await putLibraryProject(
+        makeProject({ id: "zeta", metadata: { title: "Zeta", artist: "", album: "", duration: 0 }, lastOpenedAt: 10 }),
+      );
+      await putLibraryProject(
+        makeProject({
+          id: "alpha",
+          metadata: { title: "Alpha", artist: "", album: "", duration: 0 },
+          lastOpenedAt: 20,
+        }),
+      );
+
+      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+
+      await expect.element(screen.getByText("Alpha")).toBeInTheDocument();
+
+      await screen.getByRole("button", { name: /Recently opened/ }).click();
+      await screen.getByRole("button", { name: "Title A to Z" }).click();
+
+      const orderRecent = screen.container.querySelectorAll("button");
+      const titles = Array.from(orderRecent)
+        .map((b) => b.textContent ?? "")
+        .filter((t) => t === "Alpha" || t.includes("Alpha") || t === "Zeta" || t.includes("Zeta"));
+      const alphaIdx = titles.findIndex((t) => t.includes("Alpha"));
+      const zetaIdx = titles.findIndex((t) => t.includes("Zeta"));
+      expect(alphaIdx).toBeGreaterThanOrEqual(0);
+      expect(zetaIdx).toBeGreaterThan(alphaIdx);
+    });
   });
 });
