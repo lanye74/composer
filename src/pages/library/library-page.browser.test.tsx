@@ -7,10 +7,34 @@ import type { LibraryProject } from "@/domain/project/library-project";
 import { LIBRARY_PROJECTS_QUERY_KEY } from "@/hooks/useLibraryProjects";
 import { getLibraryProject, listLibraryProjects, putLibraryProject } from "@/lib/library-persistence";
 import { LibraryPage } from "@/pages/library/library-page";
+import { useAudioStore } from "@/stores/audio";
 import { useConfirmStore } from "@/stores/confirm-store";
+import { useProjectStore } from "@/stores/project";
+import { useUIStore } from "@/stores/ui";
 import { createLine } from "@/test/factories";
 import { render } from "@/test/render";
 import { ConfirmModalHost } from "@/ui/confirm-modal";
+
+// -- Drag helpers ------------------------------------------------------------
+
+function dispatchDragEvent(target: Element, type: string, files: File[] = []) {
+  const dataTransfer = new DataTransfer();
+  for (const file of files) dataTransfer.items.add(file);
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperty(event, "dataTransfer", { value: dataTransfer });
+  target.dispatchEvent(event);
+}
+
+async function waitForActiveProject(predicate: (id: string | undefined) => boolean): Promise<string> {
+  return await new Promise<string>((resolve) => {
+    const tick = () => {
+      const id = useProjectStore.getState().activeProjectId;
+      if (id && predicate(id)) return resolve(id);
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
 
 // -- Helpers ------------------------------------------------------------------
 
@@ -39,10 +63,31 @@ const noop = () => {};
 // -- Tests --------------------------------------------------------------------
 
 describe("LibraryPage", () => {
-  it("shows the empty state when there are no projects", async () => {
-    const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
-    await expect.element(screen.getByText("Drop an audio file to start")).toBeInTheDocument();
-    await expect.element(screen.getByText(/No account needed/)).toBeInTheDocument();
+  it("shows the welcome heading and drop zone when there are no projects", async () => {
+    const screen = await render(<LibraryPage onOpenProject={noop} />);
+    await expect.element(screen.getByText("Welcome to Composer")).toBeInTheDocument();
+    await expect.element(screen.getByText("Drop audio file here")).toBeInTheDocument();
+    await expect.element(screen.getByLabelText("YouTube URL or video ID")).toBeInTheDocument();
+  });
+
+  it("creates a library project and exits library view when a file is dropped on the empty state", async () => {
+    useAudioStore.setState({ source: null, isLoading: false });
+    useProjectStore.setState({ activeProjectId: undefined });
+    useUIStore.setState({ viewingLibrary: true });
+
+    const screen = await render(<LibraryPage onOpenProject={noop} />);
+    await expect.element(screen.getByText("Drop audio file here")).toBeInTheDocument();
+    const dropLabel = screen.container.querySelector("label[for='file-drop-input']") as HTMLLabelElement;
+    expect(dropLabel).not.toBeNull();
+    const file = new File([new Uint8Array([1, 2, 3])], "First Song.mp3", { type: "audio/mpeg" });
+    dispatchDragEvent(dropLabel, "drop", [file]);
+
+    const activeId = await waitForActiveProject(() => true);
+    const projects = await listLibraryProjects();
+    const created = projects.find((p) => p.id === activeId);
+    expect(created?.metadata.title).toBe("First Song");
+    expect(created?.audioSource).toEqual({ kind: "file", name: "First Song.mp3" });
+    await expect.poll(() => useUIStore.getState().viewingLibrary).toBe(false);
   });
 
   it("renders all pinned projects in the Pinned section", async () => {
@@ -50,7 +95,7 @@ describe("LibraryPage", () => {
     await putLibraryProject(makeProject({ id: "pin-b", lastOpenedAt: 20, pinned: true }));
     await putLibraryProject(makeProject({ id: "loose-c", lastOpenedAt: 30 }));
 
-    const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+    const screen = await render(<LibraryPage onOpenProject={noop} />);
 
     await expect.element(screen.getByText("Title-pin-a")).toBeInTheDocument();
     await expect.element(screen.getByText("Title-pin-b")).toBeInTheDocument();
@@ -70,32 +115,35 @@ describe("LibraryPage", () => {
   it("calls onOpenProject when a project card is clicked", async () => {
     await putLibraryProject(makeProject({ id: "clickme", lastOpenedAt: 100 }));
     const onOpen = vi.fn();
-    const screen = await render(<LibraryPage onOpenProject={onOpen} onNewProject={noop} />);
+    const screen = await render(<LibraryPage onOpenProject={onOpen} />);
     await screen.getByRole("button", { name: /Title-clickme/ }).click();
     expect(onOpen).toHaveBeenCalledWith("clickme");
   });
 
-  it("calls onNewProject when the new project card is clicked", async () => {
+  it("creates a library project when a file is dropped onto the New project card", async () => {
     await putLibraryProject(makeProject({ id: "any", lastOpenedAt: 100 }));
-    const onNew = vi.fn();
-    const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={onNew} />);
-    await screen.getByRole("button", { name: /New project/ }).click();
-    expect(onNew).toHaveBeenCalled();
+    useAudioStore.setState({ source: null, isLoading: false });
+    useProjectStore.setState({ activeProjectId: undefined });
+    useUIStore.setState({ viewingLibrary: true });
+
+    const screen = await render(<LibraryPage onOpenProject={noop} />);
+    const newCard = screen.getByRole("button", { name: /New project/ }).element() as HTMLElement;
+    const file = new File([new Uint8Array([4, 5])], "Card Drop.mp3", { type: "audio/mpeg" });
+    dispatchDragEvent(newCard, "drop", [file]);
+
+    const activeId = await waitForActiveProject(() => true);
+    const projects = await listLibraryProjects();
+    const created = projects.find((p) => p.id === activeId);
+    expect(created?.metadata.title).toBe("Card Drop");
+    await expect.poll(() => useUIStore.getState().viewingLibrary).toBe(false);
   });
 
   it("calls onOpenSearch when the search box is clicked", async () => {
     await putLibraryProject(makeProject({ id: "any2", lastOpenedAt: 100 }));
     const onSearch = vi.fn();
-    const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} onOpenSearch={onSearch} />);
+    const screen = await render(<LibraryPage onOpenProject={noop} onOpenSearch={onSearch} />);
     await screen.getByRole("button", { name: /Search projects/ }).click();
     expect(onSearch).toHaveBeenCalled();
-  });
-
-  it("calls onNewProject from the empty-state button", async () => {
-    const onNew = vi.fn();
-    const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={onNew} />);
-    await screen.getByRole("button", { name: /New project/ }).click();
-    expect(onNew).toHaveBeenCalled();
   });
 
   describe("initial loading", () => {
@@ -112,15 +160,15 @@ describe("LibraryPage", () => {
       const screen = await baseRender(
         <QueryClientProvider client={queryClient}>
           <MotionConfig reducedMotion="always">
-            <LibraryPage onOpenProject={noop} onNewProject={noop} />
+            <LibraryPage onOpenProject={noop} />
           </MotionConfig>
         </QueryClientProvider>,
       );
 
-      expect(screen.container.textContent ?? "").not.toContain("Drop an audio file to start");
+      expect(screen.container.textContent ?? "").not.toContain("Welcome to Composer");
 
       resolveQuery([]);
-      await expect.element(screen.getByText("Drop an audio file to start")).toBeInTheDocument();
+      await expect.element(screen.getByText("Welcome to Composer")).toBeInTheDocument();
     });
   });
 
@@ -141,7 +189,7 @@ describe("LibraryPage", () => {
         }),
       );
 
-      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      const screen = await render(<LibraryPage onOpenProject={noop} />);
 
       await expect.element(screen.getByText("Title-synced-1")).toBeInTheDocument();
       await screen.getByRole("tab", { name: "Empty" }).click();
@@ -164,7 +212,7 @@ describe("LibraryPage", () => {
         }),
       );
 
-      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      const screen = await render(<LibraryPage onOpenProject={noop} />);
       await screen.getByRole("tab", { name: "In progress" }).click();
       await expect.element(screen.getByText("Title-partial-2")).toBeInTheDocument();
       expect(screen.container.textContent ?? "").not.toContain("Title-synced-2");
@@ -174,7 +222,7 @@ describe("LibraryPage", () => {
   describe("keyboard", () => {
     it("closes the sort popover when Escape is pressed", async () => {
       await putLibraryProject(makeProject({ id: "kbd-1", lastOpenedAt: 1 }));
-      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      const screen = await render(<LibraryPage onOpenProject={noop} />);
       await screen.getByRole("button", { name: /Recently opened/ }).click();
       await expect.element(screen.getByRole("button", { name: "Title A to Z" })).toBeInTheDocument();
       await userEvent.keyboard("{Escape}");
@@ -183,7 +231,7 @@ describe("LibraryPage", () => {
 
     it("filter chips are keyboard reachable via Tab", async () => {
       await putLibraryProject(makeProject({ id: "kbd-2", lastOpenedAt: 1 }));
-      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      const screen = await render(<LibraryPage onOpenProject={noop} />);
       const firstChip = screen.getByRole("tab", { name: "All" }).element() as HTMLElement;
       firstChip.focus();
       await expect.poll(() => document.activeElement).toBe(firstChip);
@@ -198,7 +246,7 @@ describe("LibraryPage", () => {
 
     it("right-clicking a card opens the context menu", async () => {
       await putLibraryProject(makeProject({ id: "ctx-open", lastOpenedAt: 1 }));
-      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      const screen = await render(<LibraryPage onOpenProject={noop} />);
       await expect.element(screen.getByText("Title-ctx-open")).toBeInTheDocument();
       const card = screen.getByRole("button", { name: /Title-ctx-open/ }).element() as HTMLElement;
       card.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
@@ -207,7 +255,7 @@ describe("LibraryPage", () => {
 
     it("clicking 'Rename' from the menu starts inline edit on the card", async () => {
       await putLibraryProject(makeProject({ id: "rn", lastOpenedAt: 1 }));
-      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      const screen = await render(<LibraryPage onOpenProject={noop} />);
       await expect.element(screen.getByText("Title-rn")).toBeInTheDocument();
       const card = screen.getByRole("button", { name: /Title-rn/ }).element() as HTMLElement;
       card.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
@@ -219,7 +267,7 @@ describe("LibraryPage", () => {
     it("clicking 'Pin to top' moves the project to the top after invalidation", async () => {
       await putLibraryProject(makeProject({ id: "a", lastOpenedAt: 10 }));
       await putLibraryProject(makeProject({ id: "b", lastOpenedAt: 100 }));
-      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      const screen = await render(<LibraryPage onOpenProject={noop} />);
       await expect.element(screen.getByText("Title-a")).toBeInTheDocument();
 
       const card = screen.getByRole("button", { name: /Title-a/ }).element() as HTMLElement;
@@ -236,7 +284,7 @@ describe("LibraryPage", () => {
     it("clicking 'Delete' and confirming removes the project from the list", async () => {
       await putLibraryProject(makeProject({ id: "del", lastOpenedAt: 1 }));
       await render(<ConfirmModalHost />);
-      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      const screen = await render(<LibraryPage onOpenProject={noop} />);
       await expect.element(screen.getByText("Title-del")).toBeInTheDocument();
 
       const card = screen.getByRole("button", { name: /Title-del/ }).element() as HTMLElement;
@@ -264,7 +312,7 @@ describe("LibraryPage", () => {
         }),
       );
 
-      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      const screen = await render(<LibraryPage onOpenProject={noop} />);
 
       await expect.element(screen.getByText("Alpha")).toBeInTheDocument();
 

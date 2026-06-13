@@ -34,53 +34,33 @@ const noop = () => {};
 
 describe("AppViewSwitch", () => {
   it("renders the LibraryPage when showLibrary is true", async () => {
-    const screen = await render(
-      <AppViewSwitch showLibrary={true} activeTab="import" onOpenProject={noop} onExitLibrary={noop} />,
-    );
-    await expect.element(screen.getByText(/Drop an audio file to start|Your library/)).toBeInTheDocument();
+    const screen = await render(<AppViewSwitch showLibrary={true} activeTab="import" onOpenProject={noop} />);
+    await expect.element(screen.getByText(/Welcome to Composer|Your library/)).toBeInTheDocument();
   });
 
   it("renders the in-project shell when showLibrary is false", async () => {
     useProjectStore.setState({ activeTab: "import" });
-    const screen = await render(
-      <AppViewSwitch showLibrary={false} activeTab="import" onOpenProject={noop} onExitLibrary={noop} />,
-    );
+    const screen = await render(<AppViewSwitch showLibrary={false} activeTab="import" onOpenProject={noop} />);
     expect(screen.container.querySelector("nav")).not.toBeNull();
   });
 
   it("calls onOpenProject when a library card is clicked", async () => {
     await putLibraryProject(makeProject({ id: "open-me", lastOpenedAt: 100 }));
     const onOpen = vi.fn();
-    const screen = await render(
-      <AppViewSwitch showLibrary={true} activeTab="import" onOpenProject={onOpen} onExitLibrary={noop} />,
-    );
+    const screen = await render(<AppViewSwitch showLibrary={true} activeTab="import" onOpenProject={onOpen} />);
     await screen.getByRole("button", { name: /Title-open-me/ }).click();
     expect(onOpen).toHaveBeenCalledWith("open-me");
   });
 
-  it("calls onExitLibrary when the new project card is clicked", async () => {
-    await putLibraryProject(makeProject({ id: "any", lastOpenedAt: 100 }));
-    const onExit = vi.fn();
-    const screen = await render(
-      <AppViewSwitch showLibrary={true} activeTab="import" onOpenProject={noop} onExitLibrary={onExit} />,
-    );
-    await screen.getByRole("button", { name: /New project/ }).click();
-    expect(onExit).toHaveBeenCalled();
-  });
-
   it("preserves the in-project shell in the DOM while the library is visible", async () => {
     useProjectStore.setState({ activeTab: "import" });
-    const screen = await render(
-      <AppViewSwitch showLibrary={true} activeTab="import" onOpenProject={noop} onExitLibrary={noop} />,
-    );
+    const screen = await render(<AppViewSwitch showLibrary={true} activeTab="import" onOpenProject={noop} />);
     expect(screen.container.querySelector("nav")).not.toBeNull();
   });
 
   it("keeps the library mounted while the in-project shell is visible", async () => {
     await putLibraryProject(makeProject({ id: "kept", lastOpenedAt: 5 }));
-    const screen = await render(
-      <AppViewSwitch showLibrary={false} activeTab="import" onOpenProject={noop} onExitLibrary={noop} />,
-    );
+    const screen = await render(<AppViewSwitch showLibrary={false} activeTab="import" onOpenProject={noop} />);
     await expect.poll(() => screen.container.textContent ?? "").toContain("Your library");
   });
 });
@@ -113,7 +93,7 @@ describe("App", () => {
     useProjectStore.setState({ activeProjectId: undefined });
     useUIStore.setState({ viewingLibrary: true });
     const screen = await render(<App />);
-    await expect.poll(() => screen.container.textContent ?? "").toMatch(/Drop an audio file to start|Your library/);
+    await expect.poll(() => screen.container.textContent ?? "").toMatch(/Welcome to Composer|Your library/);
   });
 
   it("clicking the header Library icon switches from in-project to library view", async () => {

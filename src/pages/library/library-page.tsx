@@ -1,9 +1,15 @@
-import { IconSearch } from "@tabler/icons-react";
+import { IconMusic, IconSearch } from "@tabler/icons-react";
 import { type MouseEvent, useCallback, useMemo, useState } from "react";
+import { FileDropZone } from "@/audio/file-drop-zone";
+import { YouTubeUrlInput } from "@/audio/youtube-url-input";
 import type { LibraryProject } from "@/domain/project/library-project";
 import { useLibraryActions } from "@/hooks/useLibraryActions";
 import { useLibraryProjects } from "@/hooks/useLibraryProjects";
-import { EmptyState } from "@/ui/empty-state";
+import { audioBlobs } from "@/lib/audio-blob-store-singleton";
+import { createProjectFromAudio } from "@/lib/create-project";
+import { openLibraryProject } from "@/lib/library-resume";
+import { useAudioStore } from "@/stores/audio";
+import { useUIStore } from "@/stores/ui";
 import { LibraryToolbar } from "@/ui/library/library-toolbar";
 import { NewProjectCard } from "@/ui/library/new-project-card";
 import { ProjectCard } from "@/ui/library/project-card";
@@ -16,7 +22,6 @@ import { MOD_KEY } from "@/utils/platform";
 
 interface LibraryPageProps {
   onOpenProject: (id: string) => void;
-  onNewProject: () => void;
   onOpenSearch?: () => void;
 }
 
@@ -80,9 +85,49 @@ const Grid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="grid gap-3.5 grid-cols-[repeat(auto-fill,minmax(180px,1fr))]">{children}</div>
 );
 
+async function importFileAsLibraryProject(file: File): Promise<void> {
+  if (useAudioStore.getState().isLoading) return;
+  const id = await createProjectFromAudio({ kind: "file", file }, { audioBlobs });
+  await openLibraryProject(id, { audioBlobs });
+  useUIStore.getState().setViewingLibrary(false);
+}
+
+const OrDivider: React.FC = () => (
+  <div className="flex items-center gap-3 w-full max-w-md select-none">
+    <div className="flex-1 h-px bg-composer-border" />
+    <span className="text-xs text-composer-text-muted">or</span>
+    <div className="flex-1 h-px bg-composer-border" />
+  </div>
+);
+
+interface EmptyLibraryViewProps {
+  onFileDrop: (file: File) => void;
+}
+
+const EmptyLibraryView: React.FC<EmptyLibraryViewProps> = ({ onFileDrop }) => (
+  <div className="flex flex-col items-center justify-center flex-1 gap-6 p-6 text-center">
+    <div className="select-none">
+      <h1 className="text-[26px] font-bold tracking-tight">Welcome to Composer</h1>
+      <p className="mt-1 text-sm text-composer-text-muted">
+        Drop an audio file or paste a YouTube URL to start your first project
+      </p>
+    </div>
+    <div className="w-full max-w-md min-h-48">
+      <FileDropZone accept="audio/*" onFileDrop={onFileDrop}>
+        <IconMusic className="size-12 mb-4 opacity-50 text-composer-text" stroke={1.5} />
+        <p className="text-composer-text-secondary">Drop audio file here</p>
+        <p className="mt-1 text-sm text-composer-text-muted">or click to browse</p>
+        <p className="mt-4 text-xs text-composer-text-muted">Supports MP3, WAV, M4A, OGG, FLAC</p>
+      </FileDropZone>
+    </div>
+    <OrDivider />
+    <YouTubeUrlInput />
+  </div>
+);
+
 // -- Page ---------------------------------------------------------------------
 
-const LibraryPage: React.FC<LibraryPageProps> = ({ onOpenProject, onNewProject, onOpenSearch }) => {
+const LibraryPage: React.FC<LibraryPageProps> = ({ onOpenProject, onOpenSearch }) => {
   const { data: projects = [], isPending } = useLibraryProjects();
   const [filter, setFilter] = useState<FilterChip>("all");
   const [sort, setSort] = useState<SortKey>("recent");
@@ -156,26 +201,14 @@ const LibraryPage: React.FC<LibraryPageProps> = ({ onOpenProject, onNewProject, 
     setRenamingId(undefined);
   }, []);
 
+  const handleFileDrop = useCallback((file: File) => {
+    void importFileAsLibraryProject(file);
+  }, []);
+
   if (isEmpty) {
     return (
-      <main className="flex-1 overflow-auto p-12">
-        <EmptyState
-          message="Drop an audio file to start"
-          hint="Everything stays in your browser. No account needed."
-          action={
-            <button
-              type="button"
-              onClick={onNewProject}
-              className={cn(
-                "mt-6 px-4 py-2 rounded-lg cursor-pointer text-sm font-medium",
-                "bg-composer-accent/15 text-composer-accent-text hover:bg-composer-accent/25",
-                "transition-colors duration-150",
-              )}
-            >
-              New project
-            </button>
-          }
-        />
+      <main className="flex-1 overflow-auto p-12 flex">
+        <EmptyLibraryView onFileDrop={handleFileDrop} />
       </main>
     );
   }
@@ -220,7 +253,7 @@ const LibraryPage: React.FC<LibraryPageProps> = ({ onOpenProject, onNewProject, 
           <span id="library-recent-heading">Recent</span>
         </SectionLabel>
         <Grid>
-          <NewProjectCard onClick={onNewProject} />
+          <NewProjectCard onFile={handleFileDrop} />
           {rest.map((project) => (
             <ProjectCard
               key={project.id}

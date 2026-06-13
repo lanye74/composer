@@ -70,10 +70,6 @@ const AppContent: React.FC = () => {
     useUIStore.getState().setViewingLibrary(false);
   }, []);
 
-  const handleExitLibrary = useCallback(() => {
-    setViewingLibrary(false);
-  }, [setViewingLibrary]);
-
   // Auto-start quick tour on first visit
   useEffect(() => {
     if (!shouldShowTour) return;
@@ -105,7 +101,7 @@ const AppContent: React.FC = () => {
       };
       switch (commandId) {
         case "new-project":
-          setViewingLibrary(false);
+          setViewingLibrary(true);
           break;
         case "open-settings":
           openSettings();
@@ -172,12 +168,7 @@ const AppContent: React.FC = () => {
           localStorage.removeItem("composer-tour-resume");
         }}
       />
-      <AppViewSwitch
-        showLibrary={showLibrary}
-        activeTab={activeTab}
-        onOpenProject={handleOpenProject}
-        onExitLibrary={handleExitLibrary}
-      />
+      <AppViewSwitch showLibrary={showLibrary} activeTab={activeTab} onOpenProject={handleOpenProject} />
       {source && <AudioEngine />}
       {showPlayer && <AudioPlayer />}
       <GuideCard state={guideCard} onSkip={skipGuideCard} />
@@ -189,13 +180,12 @@ interface AppViewSwitchProps {
   showLibrary: boolean;
   activeTab: string;
   onOpenProject: (id: string) => void | Promise<void>;
-  onExitLibrary: () => void;
 }
 
-const AppViewSwitch: React.FC<AppViewSwitchProps> = ({ showLibrary, activeTab, onOpenProject, onExitLibrary }) => (
+const AppViewSwitch: React.FC<AppViewSwitchProps> = ({ showLibrary, activeTab, onOpenProject }) => (
   <>
     <Activity mode={showLibrary ? "visible" : "hidden"}>
-      <LibraryPage onOpenProject={onOpenProject} onNewProject={onExitLibrary} />
+      <LibraryPage onOpenProject={onOpenProject} />
     </Activity>
     <Activity mode={showLibrary ? "hidden" : "visible"}>
       <TabBar />
