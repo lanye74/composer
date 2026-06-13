@@ -158,7 +158,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
         <span
           aria-label={SYNC_LABEL[state]}
           className={cn(
-            "absolute top-2 left-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border",
+            "absolute top-2 left-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border backdrop-blur-sm",
             "text-[10px] font-medium drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]",
             SYNC_CHIP_CLASS[state],
           )}
