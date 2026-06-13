@@ -2,9 +2,9 @@ import { IconSearch } from "@tabler/icons-react";
 import { useMemo, useState } from "react";
 import type { LibraryProject } from "@/domain/project/library-project";
 import { useLibraryProjects } from "@/hooks/useLibraryProjects";
-import { LibraryToolbar } from "@/pages/library/library-toolbar";
-import { NewProjectCard } from "@/pages/library/new-project-card";
 import { EmptyState } from "@/ui/empty-state";
+import { LibraryToolbar } from "@/ui/library/library-toolbar";
+import { NewProjectCard } from "@/ui/library/new-project-card";
 import { ProjectCard } from "@/ui/library/project-card";
 import { cn } from "@/utils/cn";
 import { filterProjects, type FilterChip, type SortKey, sortProjects } from "@/utils/library/filter-sort";
@@ -75,14 +75,14 @@ const Grid: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 // -- Page ---------------------------------------------------------------------
 
 const LibraryPage: React.FC<LibraryPageProps> = ({ onOpenProject, onNewProject, onOpenSearch }) => {
-  const { data: projects = [] } = useLibraryProjects();
+  const { data: projects = [], isPending } = useLibraryProjects();
   const [filter, setFilter] = useState<FilterChip>("all");
   const [sort, setSort] = useState<SortKey>("recent");
 
   const filteredSorted = useMemo(() => sortProjects(filterProjects(projects, filter), sort), [projects, filter, sort]);
 
   const { pinned, rest } = useMemo(() => partitionPinned(filteredSorted), [filteredSorted]);
-  const isEmpty = projects.length === 0;
+  const isEmpty = !isPending && projects.length === 0;
 
   if (isEmpty) {
     return (

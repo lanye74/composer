@@ -1,5 +1,9 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MotionConfig } from "motion/react";
+import { render as baseRender } from "vitest-browser-react";
 import { describe, expect, it, vi } from "vitest";
 import type { LibraryProject } from "@/domain/project/library-project";
+import { LIBRARY_PROJECTS_QUERY_KEY } from "@/hooks/useLibraryProjects";
 import { putLibraryProject } from "@/lib/library-persistence";
 import { LibraryPage } from "@/pages/library/library-page";
 import { createLine } from "@/test/factories";
@@ -89,6 +93,32 @@ describe("LibraryPage", () => {
     const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={onNew} />);
     await screen.getByRole("button", { name: /New project/ }).click();
     expect(onNew).toHaveBeenCalled();
+  });
+
+  describe("initial loading", () => {
+    it("does not flash the empty state while the query is pending", async () => {
+      let resolveQuery: (projects: LibraryProject[]) => void = () => {};
+      const pending = new Promise<LibraryProject[]>((resolve) => {
+        resolveQuery = resolve;
+      });
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false, gcTime: 0, staleTime: Number.POSITIVE_INFINITY } },
+      });
+      queryClient.prefetchQuery({ queryKey: LIBRARY_PROJECTS_QUERY_KEY, queryFn: () => pending });
+
+      const screen = await baseRender(
+        <QueryClientProvider client={queryClient}>
+          <MotionConfig reducedMotion="always">
+            <LibraryPage onOpenProject={noop} onNewProject={noop} />
+          </MotionConfig>
+        </QueryClientProvider>,
+      );
+
+      expect(screen.container.textContent ?? "").not.toContain("Drop an audio file to start");
+
+      resolveQuery([]);
+      await expect.element(screen.getByText("Drop an audio file to start")).toBeInTheDocument();
+    });
   });
 
   describe("filter chips", () => {
