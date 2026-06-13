@@ -1,5 +1,5 @@
 import type { LibraryProject } from "@/domain/project/library-project";
-import { syncStateOf } from "@/utils/library/sync-state";
+import { syncStateOf } from "@/domain/project/sync-state";
 
 // -- Types --------------------------------------------------------------------
 

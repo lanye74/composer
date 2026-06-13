@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { LibraryProject } from "@/domain/project/library-project";
 import { createLine } from "@/test/factories";
-import { syncStateOf } from "@/utils/library/sync-state";
+import { syncStateOf } from "@/domain/project/sync-state";
 
 function makeProject(lines: LibraryProject["lines"]): LibraryProject {
   return {
