@@ -12,6 +12,7 @@ describe("useGlobalShortcuts", () => {
         setActiveTab,
         setHelpOpen: () => {},
         setSettingsOpen: () => {},
+        openCommandPalette: () => {},
       }),
     );
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "1", metaKey: true, ctrlKey: true, bubbles: true }));
@@ -27,6 +28,7 @@ describe("useGlobalShortcuts", () => {
           helpOpen = open;
         },
         setSettingsOpen: () => {},
+        openCommandPalette: () => {},
       }),
     );
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "?", shiftKey: true, bubbles: true }));

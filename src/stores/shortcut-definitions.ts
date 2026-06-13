@@ -46,6 +46,18 @@ const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     defaultBinding: { key: "e", mod: true, shift: true, alt: true },
   },
   {
+    id: "global.openCommandPalette",
+    scope: "global",
+    description: "Open command palette",
+    defaultBinding: { key: "p", mod: true },
+  },
+  {
+    id: "global.openCommandPaletteAlias",
+    scope: "global",
+    description: "Open command palette (alias)",
+    defaultBinding: { key: "k", mod: true },
+  },
+  {
     id: "global.goToImport",
     scope: "global",
     description: "Go to Import",

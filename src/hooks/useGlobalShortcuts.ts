@@ -9,10 +9,11 @@ interface GlobalShortcutActions {
   setActiveTab: (tab: SimpleTab) => void;
   setHelpOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
+  openCommandPalette: () => void;
 }
 
 function useGlobalShortcuts(actions: GlobalShortcutActions): void {
-  const { setActiveTab, setHelpOpen, setSettingsOpen } = actions;
+  const { setActiveTab, setHelpOpen, setSettingsOpen, openCommandPalette } = actions;
   const overrides = useShortcutBindingsStore((s) => s.overrides);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: overrides triggers recomputation when bindings change
@@ -26,6 +27,8 @@ function useGlobalShortcuts(actions: GlobalShortcutActions): void {
     const goToTimeline = getEffectiveBinding("global.goToTimeline");
     const goToPreview = getEffectiveBinding("global.goToPreview");
     const goToExport = getEffectiveBinding("global.goToExport");
+    const palette = getEffectiveBinding("global.openCommandPalette");
+    const paletteAlias = getEffectiveBinding("global.openCommandPaletteAlias");
     return [
       { ...goToImport, action: () => setActiveTab("import"), description: "Go to Import" },
       { ...goToEdit, action: () => setActiveTab("edit"), description: "Go to Edit" },
@@ -33,6 +36,8 @@ function useGlobalShortcuts(actions: GlobalShortcutActions): void {
       { ...goToTimeline, action: () => setActiveTab("timeline"), description: "Go to Timeline" },
       { ...goToPreview, action: () => setActiveTab("preview"), description: "Go to Preview" },
       { ...goToExport, action: () => setActiveTab("export"), description: "Go to Export" },
+      { ...palette, action: openCommandPalette, description: "Open command palette" },
+      { ...paletteAlias, action: openCommandPalette, description: "Open command palette" },
       {
         key: playPause.key,
         shift: playPause.shift,
@@ -58,7 +63,7 @@ function useGlobalShortcuts(actions: GlobalShortcutActions): void {
         description: "Open settings",
       },
     ];
-  }, [setActiveTab, setHelpOpen, setSettingsOpen, overrides]);
+  }, [setActiveTab, setHelpOpen, setSettingsOpen, openCommandPalette, overrides]);
 
   useKeyboardShortcuts(shortcuts);
 }

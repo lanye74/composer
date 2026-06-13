@@ -19,12 +19,14 @@ import { GuideCard } from "@/tour/guide-card";
 import { useTour } from "@/tour/use-tour";
 import "@/tour/tour-theme.css";
 import { AppHeader } from "@/ui/app-header";
+import { CommandPalette, type PaletteCommandId } from "@/ui/command-palette";
 import { ConfirmModalHost } from "@/ui/confirm-modal";
 import { DivergenceModalHost } from "@/ui/divergence-modal";
 import { LyricsImportModalHost } from "@/views/lyrics-import-modal/lyrics-import-modal-host";
 import { HelpModal } from "@/ui/help-modal";
 import { SettingsModal } from "@/ui/settings-modal";
 import { TabBar } from "@/ui/tab-bar";
+import type { SimpleTab } from "@/stores/project";
 import { EditPanel } from "@/views/edit";
 import { ExportPanel } from "@/views/export";
 import { ImportPanel } from "@/views/import";
@@ -50,6 +52,7 @@ const AppContent: React.FC = () => {
   const activeProjectId = useProjectStore((s) => s.activeProjectId);
   const source = useAudioStore((s) => s.source);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const settingsOpen = useUIStore((s) => s.settingsOpen);
   const openSettings = useUIStore((s) => s.openSettings);
   const closeSettings = useUIStore((s) => s.closeSettings);
@@ -92,11 +95,58 @@ const AppContent: React.FC = () => {
     (open: boolean) => (open ? openSettings() : closeSettings()),
     [openSettings, closeSettings],
   );
+  const openCommandPalette = useCallback(() => setPaletteOpen(true), []);
+
+  const handlePaletteCommand = useCallback(
+    (commandId: PaletteCommandId) => {
+      const goToTab = (tab: SimpleTab) => {
+        setActiveTab(tab);
+        if (useUIStore.getState().viewingLibrary) useUIStore.getState().setViewingLibrary(false);
+      };
+      switch (commandId) {
+        case "new-project":
+          setViewingLibrary(false);
+          break;
+        case "open-settings":
+          openSettings();
+          break;
+        case "open-help":
+          setHelpOpen(true);
+          break;
+        case "export-ttml":
+          goToTab("export");
+          break;
+        case "go-to-import":
+          goToTab("import");
+          break;
+        case "go-to-edit":
+          goToTab("edit");
+          break;
+        case "go-to-sync":
+          goToTab("sync");
+          break;
+        case "go-to-timeline":
+          goToTab("timeline");
+          break;
+        case "go-to-preview":
+          goToTab("preview");
+          break;
+        case "go-to-export":
+          goToTab("export");
+          break;
+        case "go-to-library":
+          setViewingLibrary(true);
+          break;
+      }
+    },
+    [setActiveTab, setViewingLibrary, openSettings],
+  );
 
   useGlobalShortcuts({
     setActiveTab,
     setHelpOpen: setHelpOpenCb,
     setSettingsOpen: setSettingsOpenCb,
+    openCommandPalette,
   });
 
   return (
@@ -108,6 +158,12 @@ const AppContent: React.FC = () => {
         onLibraryOpen={() => setViewingLibrary(true)}
       />
       <HelpModal isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        onOpenProject={handleOpenProject}
+        onCommandRun={handlePaletteCommand}
+      />
       <SettingsModal
         isOpen={settingsOpen}
         onClose={closeSettings}

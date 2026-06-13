@@ -127,4 +127,64 @@ describe("App", () => {
     await expect.poll(() => useUIStore.getState().viewingLibrary).toBe(true);
     await expect.poll(() => screen.container.textContent ?? "").toMatch(/Your library/);
   });
+
+  describe("command palette", () => {
+    it("Mod+P opens the command palette", async () => {
+      localStorage.setItem("composer-tour-seen", "true");
+      await putLibraryProject(makeProject({ id: "palette-p", lastOpenedAt: 100 }));
+      useProjectStore.setState({ activeTab: "import", activeProjectId: "palette-p" });
+      useUIStore.setState({ viewingLibrary: false });
+      await render(<App />);
+
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", metaKey: true, ctrlKey: true, bubbles: true }));
+
+      await expect.poll(() => document.querySelector('input[placeholder*="Find a project"]')).not.toBeNull();
+    });
+
+    it("Mod+K opens the command palette (alias)", async () => {
+      localStorage.setItem("composer-tour-seen", "true");
+      await putLibraryProject(makeProject({ id: "palette-k", lastOpenedAt: 100 }));
+      useProjectStore.setState({ activeTab: "import", activeProjectId: "palette-k" });
+      useUIStore.setState({ viewingLibrary: false });
+      await render(<App />);
+
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, ctrlKey: true, bubbles: true }));
+
+      await expect.poll(() => document.querySelector('input[placeholder*="Find a project"]')).not.toBeNull();
+    });
+
+    it("closes itself after picking a command", async () => {
+      localStorage.setItem("composer-tour-seen", "true");
+      await putLibraryProject(makeProject({ id: "palette-close", lastOpenedAt: 100 }));
+      useProjectStore.setState({ activeTab: "import", activeProjectId: "palette-close" });
+      useUIStore.setState({ viewingLibrary: false });
+      await render(<App />);
+
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", metaKey: true, ctrlKey: true, bubbles: true }));
+
+      await expect.poll(() => document.querySelector('input[placeholder*="Find a project"]')).not.toBeNull();
+
+      const items = document.querySelectorAll("[cmdk-item]");
+      const target = Array.from(items).find((el) => (el.textContent ?? "").includes("Help"));
+      (target as HTMLElement).click();
+
+      await expect.poll(() => document.querySelector('input[placeholder*="Find a project"]')).toBeNull();
+    });
+
+    it("does not trigger tab shortcuts while open", async () => {
+      localStorage.setItem("composer-tour-seen", "true");
+      await putLibraryProject(makeProject({ id: "palette-suppress", lastOpenedAt: 100 }));
+      useProjectStore.setState({ activeTab: "import", activeProjectId: "palette-suppress" });
+      useUIStore.setState({ viewingLibrary: false });
+      await render(<App />);
+
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "p", metaKey: true, ctrlKey: true, bubbles: true }));
+
+      await expect.poll(() => document.querySelector('input[placeholder*="Find a project"]')).not.toBeNull();
+
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "1", metaKey: true, ctrlKey: true, bubbles: true }));
+
+      expect(useProjectStore.getState().activeTab).toBe("import");
+    });
+  });
 });
