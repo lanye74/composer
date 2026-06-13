@@ -1,4 +1,5 @@
 import { getLibraryProject, putLibraryProject } from "@/lib/library-persistence";
+import { cancelPendingSave, flushPendingSave } from "@/lib/persistence-debounce";
 import { createProjectInitialState } from "@/stores/project/project-initial-state";
 import type { LibraryActions, LibraryState, ProjectStore } from "@/stores/project/types";
 import type { StateCreator } from "zustand";
@@ -13,10 +14,16 @@ function createLibraryInitialState(): LibraryState {
 
 // -- Slice --------------------------------------------------------------------
 
-const createLibrarySlice: StateCreator<ProjectStore, [], [], LibraryState & LibraryActions> = (set) => ({
+const createLibrarySlice: StateCreator<ProjectStore, [], [], LibraryState & LibraryActions> = (set, get) => ({
   ...createLibraryInitialState(),
 
   setActiveProject: async (id, deps) => {
+    const previousId = get().activeProjectId;
+    if (previousId !== undefined && previousId !== id) {
+      await flushPendingSave();
+      cancelPendingSave();
+    }
+
     if (id === undefined) {
       set({ ...createProjectInitialState(), activeProjectId: undefined });
       return;

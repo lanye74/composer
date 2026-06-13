@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { LibraryProject } from "@/domain/project/library-project";
 import { MemoryAudioBlobStore } from "@/lib/audio-blob-store";
 import { getLibraryProject, putLibraryProject } from "@/lib/library-persistence";
+import { saveActiveProject } from "@/lib/library-save";
+import { debouncedSave } from "@/lib/persistence-debounce";
+import { useSettingsStore } from "@/stores/settings";
 import { useProjectStore } from "@/stores/project";
 import { DEFAULT_SYLLABLE_SPLIT_DEFAULTS } from "@/stores/project/types";
 
@@ -170,5 +173,69 @@ describe("library-slice · invariants", () => {
     expect(state.historyIndex).toBe(-1);
     expect(state.isDirty).toBe(false);
     expect(state.isDirtySinceHistory).toBe(false);
+  });
+});
+
+// -- Regressions --------------------------------------------------------------
+
+describe("library-slice · regressions", () => {
+  it("regression: setActiveProject(B) flushes A's pending debounced save under A's id before swapping", async () => {
+    await putLibraryProject(
+      makeProject("A", { metadata: { title: "A original", artist: "", album: "", duration: 0 } }),
+    );
+    await putLibraryProject(
+      makeProject("B", { metadata: { title: "B original", artist: "", album: "", duration: 0 } }),
+    );
+
+    const audioBlobs = new MemoryAudioBlobStore();
+    await useProjectStore.getState().setActiveProject("A", { audioBlobs });
+    useSettingsStore.getState().set("autoSaveDelay", 100000);
+    useProjectStore.getState().setMetadata({ title: "A edited" });
+    debouncedSave(() => saveActiveProject());
+
+    await useProjectStore.getState().setActiveProject("B", { audioBlobs });
+
+    const reloadedA = await getLibraryProject("A");
+    expect(reloadedA?.metadata.title).toBe("A edited");
+
+    const reloadedB = await getLibraryProject("B");
+    expect(reloadedB?.metadata.title).toBe("B original");
+    expect(useProjectStore.getState().activeProjectId).toBe("B");
+  });
+
+  it("regression: setActiveProject(undefined) flushes A's pending debounced save before clearing", async () => {
+    await putLibraryProject(
+      makeProject("A", { metadata: { title: "A original", artist: "", album: "", duration: 0 } }),
+    );
+
+    const audioBlobs = new MemoryAudioBlobStore();
+    await useProjectStore.getState().setActiveProject("A", { audioBlobs });
+    useSettingsStore.getState().set("autoSaveDelay", 100000);
+    useProjectStore.getState().setMetadata({ title: "A edited" });
+    debouncedSave(() => saveActiveProject());
+
+    await useProjectStore.getState().setActiveProject(undefined);
+
+    const reloadedA = await getLibraryProject("A");
+    expect(reloadedA?.metadata.title).toBe("A edited");
+    expect(useProjectStore.getState().activeProjectId).toBeUndefined();
+  });
+
+  it("regression: setActiveProject is a no-op for the queued save when the active id is unchanged", async () => {
+    await putLibraryProject(
+      makeProject("A", { metadata: { title: "A original", artist: "", album: "", duration: 0 } }),
+    );
+
+    const audioBlobs = new MemoryAudioBlobStore();
+    await useProjectStore.getState().setActiveProject("A", { audioBlobs });
+    useSettingsStore.getState().set("autoSaveDelay", 100000);
+    useProjectStore.getState().setMetadata({ title: "A edited" });
+    debouncedSave(() => saveActiveProject());
+
+    await useProjectStore.getState().setActiveProject("A", { audioBlobs });
+
+    const reloadedA = await getLibraryProject("A");
+    expect(reloadedA?.metadata.title).toBe("A original");
+    expect(useProjectStore.getState().activeProjectId).toBe("A");
   });
 });

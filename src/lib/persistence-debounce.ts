@@ -37,16 +37,17 @@ function cancelPendingSave(): void {
   pendingSave = null;
 }
 
-function flushPendingSave(): void {
+function flushPendingSave(): Promise<void> {
   if (saveTimeout) {
     clearTimeout(saveTimeout);
     saveTimeout = null;
   }
   const queued = pendingSave;
   pendingSave = null;
-  if (queued) {
-    queued().catch((err) => console.error(LOG_PREFIX, "Flush save failed:", err));
-  }
+  if (!queued) return Promise.resolve();
+  return queued().catch((err) => {
+    console.error(LOG_PREFIX, "Flush save failed:", err);
+  });
 }
 
 // -- Exports ------------------------------------------------------------------
