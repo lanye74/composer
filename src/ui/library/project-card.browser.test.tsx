@@ -1,3 +1,4 @@
+import { userEvent } from "vitest/browser";
 import { describe, expect, it, vi } from "vitest";
 import type { LibraryProject } from "@/domain/project/library-project";
 import { ProjectCard } from "@/ui/library/project-card";
@@ -64,7 +65,7 @@ describe("ProjectCard", () => {
     const project = makeProject({ id: "proj-42" });
     const onOpen = vi.fn();
     const screen = await render(<ProjectCard project={project} onOpen={onOpen} />);
-    await screen.getByRole("button", { name: /Sample Song/i }).click();
+    await screen.getByRole("button", { name: "Sample Song" }).click();
     expect(onOpen).toHaveBeenCalledWith("proj-42");
   });
 
@@ -94,10 +95,41 @@ describe("ProjectCard", () => {
     const project = makeProject({ id: "ctx-id" });
     const onContext = vi.fn();
     const screen = await render(<ProjectCard project={project} onOpen={noop} onContextMenu={onContext} />);
-    const button = screen.getByRole("button", { name: /Sample Song/i }).element() as HTMLElement;
+    const button = screen.getByRole("button", { name: "Sample Song" }).element() as HTMLElement;
     button.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
     expect(onContext).toHaveBeenCalledTimes(1);
     expect(onContext.mock.calls[0][1]).toBe("ctx-id");
+  });
+
+  it("calls onContextMenu when the More button is clicked", async () => {
+    const project = makeProject({ id: "more-id" });
+    const onContext = vi.fn();
+    const screen = await render(<ProjectCard project={project} onOpen={noop} onContextMenu={onContext} />);
+    await screen.getByRole("button", { name: /more actions/i }).click();
+    expect(onContext).toHaveBeenCalledTimes(1);
+    expect(onContext.mock.calls[0][1]).toBe("more-id");
+  });
+
+  it("activates onOpen when Enter is pressed on a focused card", async () => {
+    const project = makeProject({ id: "kbd-enter" });
+    const onOpen = vi.fn();
+    const screen = await render(<ProjectCard project={project} onOpen={onOpen} />);
+    const card = screen.getByRole("button", { name: "Sample Song" }).element() as HTMLElement;
+    card.focus();
+    await expect.poll(() => document.activeElement).toBe(card);
+    await userEvent.keyboard("{Enter}");
+    expect(onOpen).toHaveBeenCalledWith("kbd-enter");
+  });
+
+  it("activates onOpen when Space is pressed on a focused card", async () => {
+    const project = makeProject({ id: "kbd-space" });
+    const onOpen = vi.fn();
+    const screen = await render(<ProjectCard project={project} onOpen={onOpen} />);
+    const card = screen.getByRole("button", { name: "Sample Song" }).element() as HTMLElement;
+    card.focus();
+    await expect.poll(() => document.activeElement).toBe(card);
+    await userEvent.keyboard(" ");
+    expect(onOpen).toHaveBeenCalledWith("kbd-space");
   });
 
   describe("edge cases", () => {

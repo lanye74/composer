@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MotionConfig } from "motion/react";
+import { userEvent } from "vitest/browser";
 import { render as baseRender } from "vitest-browser-react";
 import { describe, expect, it, vi } from "vitest";
 import type { LibraryProject } from "@/domain/project/library-project";
@@ -54,9 +55,9 @@ describe("LibraryPage", () => {
 
     const pinnedHeading = screen.container.querySelector("section[aria-labelledby='library-pinned-heading']");
     expect(pinnedHeading).not.toBeNull();
-    const pinnedCards = pinnedHeading?.querySelectorAll("button");
+    const pinnedCards = pinnedHeading?.querySelectorAll("[role='button']");
     const pinnedTitles = Array.from(pinnedCards ?? [])
-      .map((b) => b.textContent ?? "")
+      .map((el) => el.getAttribute("aria-label") ?? "")
       .filter((t) => t.includes("Title-"));
     expect(pinnedTitles.length).toBe(2);
     expect(pinnedTitles.some((t) => t.includes("Title-pin-a"))).toBe(true);
@@ -168,6 +169,25 @@ describe("LibraryPage", () => {
     });
   });
 
+  describe("keyboard", () => {
+    it("closes the sort popover when Escape is pressed", async () => {
+      await putLibraryProject(makeProject({ id: "kbd-1", lastOpenedAt: 1 }));
+      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      await screen.getByRole("button", { name: /Recently opened/ }).click();
+      await expect.element(screen.getByRole("button", { name: "Title A to Z" })).toBeInTheDocument();
+      await userEvent.keyboard("{Escape}");
+      await expect.poll(() => screen.container.querySelector("[role='dialog']")).toBeNull();
+    });
+
+    it("filter chips are keyboard reachable via Tab", async () => {
+      await putLibraryProject(makeProject({ id: "kbd-2", lastOpenedAt: 1 }));
+      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      const firstChip = screen.getByRole("tab", { name: "All" }).element() as HTMLElement;
+      firstChip.focus();
+      await expect.poll(() => document.activeElement).toBe(firstChip);
+    });
+  });
+
   describe("sort", () => {
     it("re-orders projects when 'Title A to Z' is picked from the sort menu", async () => {
       await putLibraryProject(
@@ -188,10 +208,10 @@ describe("LibraryPage", () => {
       await screen.getByRole("button", { name: /Recently opened/ }).click();
       await screen.getByRole("button", { name: "Title A to Z" }).click();
 
-      const orderRecent = screen.container.querySelectorAll("button");
-      const titles = Array.from(orderRecent)
-        .map((b) => b.textContent ?? "")
-        .filter((t) => t === "Alpha" || t.includes("Alpha") || t === "Zeta" || t.includes("Zeta"));
+      const cards = screen.container.querySelectorAll("[role='button']");
+      const titles = Array.from(cards)
+        .map((el) => el.getAttribute("aria-label") ?? el.textContent ?? "")
+        .filter((t) => t.includes("Alpha") || t.includes("Zeta"));
       const alphaIdx = titles.findIndex((t) => t.includes("Alpha"));
       const zetaIdx = titles.findIndex((t) => t.includes("Zeta"));
       expect(alphaIdx).toBeGreaterThanOrEqual(0);

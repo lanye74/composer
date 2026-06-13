@@ -1,11 +1,11 @@
 import { IconDots } from "@tabler/icons-react";
-import type { MouseEvent } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
 import type { LibraryProject } from "@/domain/project/library-project";
 import { WaveformFallback } from "@/ui/library/waveform-fallback";
 import { cn } from "@/utils/cn";
 import { formatTime } from "@/utils/format-time";
 import { relativeTime } from "@/utils/library/relative-time";
-import { syncStateOf, type SyncState } from "@/utils/library/sync-state";
+import { syncStateOf, type SyncState } from "@/domain/project/sync-state";
 
 // -- Interfaces ---------------------------------------------------------------
 
@@ -50,16 +50,27 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onOpen, onContextMen
     onContextMenu?.(e, project.id);
   };
 
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onOpen(project.id);
+    }
+  };
+
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={title}
       onClick={() => onOpen(project.id)}
+      onKeyDown={handleKeyDown}
       onContextMenu={handleContext}
       className={cn(
         "group relative flex flex-col text-left cursor-pointer bg-composer-bg-dark",
         "border border-composer-border rounded-xl overflow-hidden select-none",
         "transition-[transform,border-color] duration-150",
         "hover:-translate-y-px hover:border-composer-border-hover",
+        "focus-visible:outline-none focus-visible:border-composer-accent",
       )}
     >
       <div className="relative aspect-square overflow-hidden">
@@ -77,19 +88,18 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onOpen, onContextMen
           <span className={cn("size-1.5 rounded-full", SYNC_DOT_CLASS[state])} aria-hidden="true" />
           {SYNC_LABEL[state]}
         </span>
-        <span
-          role="button"
-          tabIndex={-1}
+        <button
+          type="button"
           aria-label="More actions"
           onClick={handleMoreClick}
           className={cn(
             "absolute top-1.5 right-1.5 size-6.5 rounded-md inline-flex items-center justify-center",
             "bg-black/50 text-white/85 cursor-pointer opacity-0 transition-opacity",
-            "group-hover:opacity-100 hover:bg-black/70",
+            "group-hover:opacity-100 hover:bg-black/70 focus-visible:opacity-100 focus-visible:outline-none",
           )}
         >
           <IconDots className="size-4" />
-        </span>
+        </button>
       </div>
       <div className="px-3 pt-2.5 pb-3 min-w-0">
         <div className="text-[13px] font-semibold leading-tight truncate">{title}</div>
@@ -99,7 +109,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, onOpen, onContextMen
           <span>{opened}</span>
         </div>
       </div>
-    </button>
+    </div>
   );
 };
 
