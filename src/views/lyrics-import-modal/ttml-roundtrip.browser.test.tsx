@@ -15,11 +15,15 @@ const sampleWordSyncedTtml = `<?xml version="1.0" encoding="UTF-8"?>
     <div>
       <p begin="00:00.000" end="00:02.500" ttm:agent="v1">
         <span begin="00:00.000" end="00:00.500">Hello</span>
-        <span begin="00:00.500" end="00:01.000">world</span>
+        <span begin="00:00.500" end="00:01.000">word</span>
       </p>
     </div>
   </body>
 </tt>`;
+
+// Real-world TTML the user reported as incorrectly importing as line-synced.
+// Single-line export (no whitespace between p and span), composer:timing="Word".
+const minifiedComposerExportTtml = `<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:ttp="http://www.w3.org/ns/ttml#parameter" xmlns:composer="https://composer.boidu.dev/ttml" ttp:timeBase="media" xml:lang="en" composer:timing="Word"><head><metadata><ttm:title>Test</ttm:title><ttm:agent xml:id="v1" type="person"><ttm:name>Lead</ttm:name></ttm:agent></metadata></head><body dur="0:10.000"><div><p begin="0:34.821" end="0:36.573" ttm:agent="v1"><span begin="0:34.821" end="0:35.349">Fallen</span> <span begin="0:35.349" end="0:36.573">angel</span></p><p begin="0:38.542" end="0:39.985" ttm:agent="v1"><span begin="0:38.542" end="0:38.805">Its</span> <span begin="0:38.805" end="0:39.985">alright</span></p></div></body></tt>`;
 
 describe("TTML import → store → persist roundtrip", () => {
   it("preserves word timing through import and autosave", async () => {
@@ -74,5 +78,52 @@ describe("TTML import → store → persist roundtrip", () => {
     const lines = useProjectStore.getState().lines;
     expect(lines[0]?.words?.length).toBeGreaterThan(0);
     expect(lines[0]?.begin).toBeUndefined();
+  });
+
+  it("regression: minified single-line composer-export TTML re-imports as word-synced, not line-synced", async () => {
+    const file = new File(["data"], "audio.wav", { type: "audio/wav" });
+    const id = await createProjectFromAudio({ kind: "file", file }, { audioBlobs });
+    await openLibraryProject(id, { audioBlobs });
+
+    const parsed = parseLyricsFile("real.ttml", minifiedComposerExportTtml);
+    expect(parsed.hasTimingData).toBe(true);
+    expect(parsed.lines.length).toBeGreaterThanOrEqual(2);
+    for (const line of parsed.lines) {
+      expect(line.words?.length).toBeGreaterThan(0);
+      expect(line.begin).toBeUndefined();
+    }
+
+    await importParsedLyrics(parsed, {
+      confirm: async () => true,
+      agents: useProjectStore.getState().agents,
+      audioDuration: 0,
+      applyBackgroundExtraction: false,
+      backgroundExtractionMergeStandalone: false,
+      backgroundExtractionPreserveBrackets: false,
+      source: { label: "test", filename: "real.ttml" },
+    });
+
+    const memLines = useProjectStore.getState().lines;
+    expect(memLines.every((l) => l.words && l.words.length > 0)).toBe(true);
+  });
+
+  it("regression: composer-export TTML re-imports as word-synced even with background extraction enabled", async () => {
+    const file = new File(["data"], "audio.wav", { type: "audio/wav" });
+    const id = await createProjectFromAudio({ kind: "file", file }, { audioBlobs });
+    await openLibraryProject(id, { audioBlobs });
+
+    const parsed = parseLyricsFile("real.ttml", minifiedComposerExportTtml);
+    await importParsedLyrics(parsed, {
+      confirm: async () => true,
+      agents: useProjectStore.getState().agents,
+      audioDuration: 0,
+      applyBackgroundExtraction: true,
+      backgroundExtractionMergeStandalone: true,
+      backgroundExtractionPreserveBrackets: false,
+      source: { label: "test", filename: "real.ttml" },
+    });
+
+    const memLines = useProjectStore.getState().lines;
+    expect(memLines.every((l) => l.words && l.words.length > 0)).toBe(true);
   });
 });
