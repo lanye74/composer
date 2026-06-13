@@ -168,7 +168,12 @@ const AppContent: React.FC = () => {
           localStorage.removeItem("composer-tour-resume");
         }}
       />
-      <AppViewSwitch showLibrary={showLibrary} activeTab={activeTab} onOpenProject={handleOpenProject} />
+      <AppViewSwitch
+        showLibrary={showLibrary}
+        activeTab={activeTab}
+        onOpenProject={handleOpenProject}
+        onOpenSearch={() => setPaletteOpen(true)}
+      />
       {source && <AudioEngine />}
       {showPlayer && <AudioPlayer />}
       <GuideCard state={guideCard} onSkip={skipGuideCard} />
@@ -180,12 +185,13 @@ interface AppViewSwitchProps {
   showLibrary: boolean;
   activeTab: string;
   onOpenProject: (id: string) => void | Promise<void>;
+  onOpenSearch?: () => void;
 }
 
-const AppViewSwitch: React.FC<AppViewSwitchProps> = ({ showLibrary, activeTab, onOpenProject }) => (
+const AppViewSwitch: React.FC<AppViewSwitchProps> = ({ showLibrary, activeTab, onOpenProject, onOpenSearch }) => (
   <>
     <Activity mode={showLibrary ? "visible" : "hidden"}>
-      <LibraryPage onOpenProject={onOpenProject} />
+      <LibraryPage onOpenProject={onOpenProject} onOpenSearch={onOpenSearch} />
     </Activity>
     <Activity mode={showLibrary ? "hidden" : "visible"}>
       <TabBar />

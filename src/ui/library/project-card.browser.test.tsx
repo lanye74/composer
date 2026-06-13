@@ -74,7 +74,7 @@ describe("ProjectCard", () => {
       lines: [createLine({ text: "a", begin: 0, end: 1 }), createLine({ text: "b", begin: 1, end: 2 })],
     });
     const screen = await render(<ProjectCard project={project} onOpen={noop} />);
-    await expect.element(screen.getByText("Synced")).toBeInTheDocument();
+    await expect.element(screen.getByLabelText("Synced")).toBeInTheDocument();
   });
 
   it("shows the in-progress badge when some lines are synced", async () => {
@@ -82,13 +82,13 @@ describe("ProjectCard", () => {
       lines: [createLine({ text: "a", begin: 0, end: 1 }), createLine({ text: "b" })],
     });
     const screen = await render(<ProjectCard project={project} onOpen={noop} />);
-    await expect.element(screen.getByText("In progress")).toBeInTheDocument();
+    await expect.element(screen.getByLabelText("In progress")).toBeInTheDocument();
   });
 
   it("shows the lyrics-only badge when no lines are synced", async () => {
     const project = makeProject({ lines: [createLine({ text: "a" })] });
     const screen = await render(<ProjectCard project={project} onOpen={noop} />);
-    await expect.element(screen.getByText("Lyrics only")).toBeInTheDocument();
+    await expect.element(screen.getByLabelText("Lyrics only")).toBeInTheDocument();
   });
 
   it("calls onContextMenu on right-click", async () => {

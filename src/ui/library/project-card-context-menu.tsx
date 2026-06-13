@@ -160,7 +160,7 @@ const ProjectCardContextMenu: React.FC<ProjectCardContextMenuProps> = ({
         onKeyDown={handleKeyDown}
         style={{ position: "fixed", top: clamped.y, left: clamped.x }}
       >
-        <MenuContainer className="min-w-45">
+        <MenuContainer>
           {rows.map((row, idx) => {
             if (row.kind === "divider") {
               return (

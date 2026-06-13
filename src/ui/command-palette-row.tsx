@@ -1,6 +1,5 @@
 import { Command } from "cmdk";
 import type { LibraryProject } from "@/domain/project/library-project";
-import { syncStateOf, type SyncState } from "@/domain/project/sync-state";
 import { getEffectiveKeysArray } from "@/stores/shortcut-bindings";
 import type { PaletteCommandDescriptor } from "@/ui/command-palette-commands";
 import { InlineKeyBadge } from "@/ui/inline-key-badge";
@@ -10,31 +9,10 @@ import { formatTime } from "@/utils/format-time";
 
 // -- Constants ----------------------------------------------------------------
 
-const SYNC_LABEL: Record<SyncState, string> = {
-  synced: "synced",
-  partial: "partial",
-  empty: "empty",
-};
-
-const SYNC_DOT_CLASS: Record<SyncState, string> = {
-  synced: "bg-composer-success",
-  partial: "bg-composer-warning",
-  empty: "bg-composer-text-faint",
-};
-
 const PALETTE_ITEM_CLASSES = cn(
   "flex items-center gap-2.5 px-2.5 py-2 rounded-md cursor-pointer select-none",
   "data-[selected=true]:bg-composer-accent/15",
   "aria-selected:bg-composer-accent/15",
-);
-
-// -- Sub-components -----------------------------------------------------------
-
-const PaletteSyncBadge: React.FC<{ state: SyncState }> = ({ state }) => (
-  <span className="inline-flex items-center gap-1.5 text-[11px] text-composer-text-faint">
-    <span className={cn("size-1.5 rounded-full", SYNC_DOT_CLASS[state])} aria-hidden="true" />
-    {SYNC_LABEL[state]}
-  </span>
 );
 
 // -- Project row --------------------------------------------------------------
@@ -47,10 +25,8 @@ interface ProjectRowProps {
 const ProjectRow: React.FC<ProjectRowProps> = ({ project, onSelect }) => {
   const title = project.metadata.title || "Untitled";
   const artist = project.metadata.artist || "";
-  const duration = project.metadata.duration > 0 ? formatTime(project.metadata.duration, 0) : "No audio";
-  const state = syncStateOf(project);
+  const duration = project.metadata.duration > 0 ? formatTime(project.metadata.duration, 0) : "";
   const thumb = project.metadata.thumbnailDataUrl;
-  const sub = artist ? `${artist} ・ ${duration}` : duration;
   const itemValue = `${project.id} ${title} ${artist}`;
 
   return (
@@ -64,9 +40,9 @@ const ProjectRow: React.FC<ProjectRowProps> = ({ project, onSelect }) => {
       </span>
       <span className="flex-1 min-w-0">
         <span className="block text-[13px] font-medium truncate">{title}</span>
-        <span className="block text-[11px] text-composer-text-muted truncate">{sub}</span>
+        <span className="block text-[11px] text-composer-text-muted truncate">{artist}</span>
       </span>
-      <PaletteSyncBadge state={state} />
+      {duration && <InlineKeyBadge keys={[duration]} trailing={false} />}
     </Command.Item>
   );
 };

@@ -23,9 +23,8 @@ interface CommandPaletteProps {
 
 const PALETTE_GROUP_HEADING_CLASSES = cn(
   "[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1",
-  "[&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:uppercase",
-  "[&_[cmdk-group-heading]]:tracking-[0.08em] [&_[cmdk-group-heading]]:font-semibold",
-  "[&_[cmdk-group-heading]]:text-composer-text-faint",
+  "[&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold",
+  "[&_[cmdk-group-heading]]:text-composer-text-muted",
 );
 
 // -- Sub-components -----------------------------------------------------------

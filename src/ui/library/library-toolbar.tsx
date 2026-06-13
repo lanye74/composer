@@ -77,20 +77,19 @@ const LibraryToolbar: React.FC<LibraryToolbarProps> = ({ filter, onFilterChange,
         }
       >
         {(close) => (
-          <ul className="py-1 min-w-44">
+          <div role="menu" className="p-1 min-w-45">
             {SORTS.map(({ key, label }) => (
-              <li key={key}>
-                <MenuItem
-                  label={label}
-                  selected={sort === key}
-                  onClick={() => {
-                    onSortChange(key);
-                    close();
-                  }}
-                />
-              </li>
+              <MenuItem
+                key={key}
+                label={label}
+                selected={sort === key}
+                onClick={() => {
+                  onSortChange(key);
+                  close();
+                }}
+              />
             ))}
-          </ul>
+          </div>
         )}
       </Popover>
     </div>

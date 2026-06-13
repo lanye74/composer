@@ -1,5 +1,5 @@
-import { IconDots } from "@tabler/icons-react";
-import type { KeyboardEvent, MouseEvent } from "react";
+import { IconCircleCheckFilled, IconDots, IconHourglassLow, IconMusic } from "@tabler/icons-react";
+import type { ComponentType, KeyboardEvent, MouseEvent } from "react";
 import { useState } from "react";
 import type { LibraryProject } from "@/domain/project/library-project";
 import { WaveformFallback } from "@/ui/library/waveform-fallback";
@@ -27,10 +27,21 @@ const SYNC_LABEL: Record<SyncState, string> = {
   empty: "Lyrics only",
 };
 
-const SYNC_DOT_CLASS: Record<SyncState, string> = {
-  synced: "bg-composer-success",
-  partial: "bg-composer-warning",
-  empty: "bg-composer-text-faint",
+interface TablerIconProps {
+  className?: string;
+  size?: number | string;
+}
+
+const SYNC_ICON: Record<SyncState, ComponentType<TablerIconProps>> = {
+  synced: IconCircleCheckFilled,
+  partial: IconHourglassLow,
+  empty: IconMusic,
+};
+
+const SYNC_ICON_CLASS: Record<SyncState, string> = {
+  synced: "text-composer-success",
+  partial: "text-composer-warning",
+  empty: "text-composer-text-tertiary",
 };
 
 function focusAndSelectOnMount(node: HTMLInputElement | null) {
@@ -96,6 +107,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   const duration = project.metadata.duration > 0 ? formatTime(project.metadata.duration, 0) : "No audio";
   const opened = relativeTime(project.lastOpenedAt);
   const thumb = project.metadata.thumbnailDataUrl;
+  const SyncIcon = SYNC_ICON[state];
 
   const handleContext = (e: MouseEvent) => {
     if (!onContextMenu) return;
@@ -132,8 +144,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
       className={cn(
         "group relative flex flex-col text-left cursor-pointer bg-composer-bg-dark",
         "border border-composer-border rounded-xl overflow-hidden select-none",
-        "transition-[transform,border-color] duration-150",
-        "hover:-translate-y-px hover:border-composer-border-hover",
+        "transition-[border-color] duration-150",
+        "hover:border-composer-border-hover",
         "focus-visible:outline-none focus-visible:border-composer-accent",
       )}
     >
@@ -144,14 +156,15 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
           <WaveformFallback seed={project.id} />
         )}
         <span
+          aria-label={SYNC_LABEL[state]}
+          title={SYNC_LABEL[state]}
           className={cn(
-            "absolute top-2 left-2 inline-flex items-center gap-1.5",
-            "px-2 py-0.5 rounded-md bg-composer-bg-dark/85 border border-composer-border",
-            "text-[11px] font-medium text-composer-text-secondary",
+            "absolute top-2 left-2 inline-flex items-center justify-center size-6 rounded-full",
+            "bg-composer-bg-dark/80 border border-composer-border",
+            "drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]",
           )}
         >
-          <span className={cn("size-1.5 rounded-full", SYNC_DOT_CLASS[state])} aria-hidden="true" />
-          {SYNC_LABEL[state]}
+          <SyncIcon className={cn("size-3.5", SYNC_ICON_CLASS[state])} />
         </span>
         <button
           type="button"

@@ -10,13 +10,13 @@ import { createProjectFromAudio } from "@/lib/create-project";
 import { openLibraryProject } from "@/lib/library-resume";
 import { useAudioStore } from "@/stores/audio";
 import { useUIStore } from "@/stores/ui";
+import { InlineKeyBadge } from "@/ui/inline-key-badge";
 import { LibraryToolbar } from "@/ui/library/library-toolbar";
 import { NewProjectCard } from "@/ui/library/new-project-card";
 import { ProjectCard } from "@/ui/library/project-card";
 import { ProjectCardContextMenu, type ProjectCardAction } from "@/ui/library/project-card-context-menu";
 import { cn } from "@/utils/cn";
 import { filterProjects, type FilterChip, type SortKey, sortProjects } from "@/utils/library/filter-sort";
-import { MOD_KEY } from "@/utils/platform";
 
 // -- Interfaces ---------------------------------------------------------------
 
@@ -64,19 +64,12 @@ const SearchBox: React.FC<SearchBoxProps> = ({ onClick }) => (
   >
     <IconSearch className="size-3.5 text-composer-text-muted" />
     <span className="flex-1 text-left text-[13px] text-composer-text-muted">Search projects, commands</span>
-    <kbd className="px-1.5 py-0.5 rounded text-[10px] bg-composer-button text-composer-text-secondary font-mono">
-      {MOD_KEY}K
-    </kbd>
+    <InlineKeyBadge keys={["Mod", "P"]} trailing={false} />
   </button>
 );
 
 const SectionLabel: React.FC<{ children: React.ReactNode; first?: boolean }> = ({ children, first }) => (
-  <h2
-    className={cn(
-      "text-[10px] font-semibold uppercase tracking-[0.1em] text-composer-text-faint mb-3 select-none",
-      first ? "mt-0" : "mt-7",
-    )}
-  >
+  <h2 className={cn("text-xs font-semibold text-composer-text-muted mb-3 select-none", first ? "mt-0" : "mt-7")}>
     {children}
   </h2>
 );
