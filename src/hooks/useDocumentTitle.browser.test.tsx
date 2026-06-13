@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { renderHook } from "vitest-browser-react";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { useProjectStore } from "@/stores/project";
+import { useUIStore } from "@/stores/ui";
 
 const DEFAULT_TITLE = "Composer ・ Free TTML Lyrics Editor";
 
@@ -11,6 +12,7 @@ describe("useDocumentTitle", () => {
   beforeEach(() => {
     originalTitle = document.title;
     document.title = DEFAULT_TITLE;
+    useUIStore.setState({ viewingLibrary: false });
   });
 
   afterEach(() => {
@@ -63,5 +65,24 @@ describe("useDocumentTitle", () => {
 
     unmount();
     expect(document.title).toBe(DEFAULT_TITLE);
+  });
+
+  it("uses the captured default when the library is visible even with an active project title", async () => {
+    useProjectStore.setState((s) => ({ metadata: { ...s.metadata, title: "Some Song" } }));
+    useUIStore.setState({ viewingLibrary: true });
+    await renderHook(() => useDocumentTitle());
+    expect(document.title).toBe(DEFAULT_TITLE);
+  });
+
+  it("switches between library and in-project titles when viewingLibrary toggles", async () => {
+    useProjectStore.setState((s) => ({ metadata: { ...s.metadata, title: "Yesterday" } }));
+    await renderHook(() => useDocumentTitle());
+    expect(document.title).toBe("Composer ・ Yesterday");
+
+    useUIStore.setState({ viewingLibrary: true });
+    await expect.poll(() => document.title).toBe(DEFAULT_TITLE);
+
+    useUIStore.setState({ viewingLibrary: false });
+    await expect.poll(() => document.title).toBe("Composer ・ Yesterday");
   });
 });
