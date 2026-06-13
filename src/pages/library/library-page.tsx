@@ -15,6 +15,7 @@ import { LibraryToolbar } from "@/ui/library/library-toolbar";
 import { NewProjectCard } from "@/ui/library/new-project-card";
 import { ProjectCard } from "@/ui/library/project-card";
 import { ProjectCardContextMenu, type ProjectCardAction } from "@/ui/library/project-card-context-menu";
+import { SyncChipGallery } from "@/ui/library/sync-chip-gallery";
 import { cn } from "@/utils/cn";
 import { filterProjects, type FilterChip, type SortKey, sortProjects } from "@/utils/library/filter-sort";
 
@@ -212,6 +213,8 @@ const LibraryPage: React.FC<LibraryPageProps> = ({ onOpenProject, onOpenSearch }
         <h1 className="text-[26px] font-bold tracking-tight">Your library</h1>
         <SearchBox onClick={onOpenSearch} />
       </header>
+
+      <SyncChipGallery />
 
       <LibraryToolbar filter={filter} onFilterChange={setFilter} sort={sort} onSortChange={setSort} />
 
