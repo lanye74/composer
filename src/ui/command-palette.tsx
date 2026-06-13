@@ -1,4 +1,4 @@
-import { IconArrowDown, IconArrowUp, IconCornerDownLeft, IconSearch } from "@tabler/icons-react";
+import { IconSearch } from "@tabler/icons-react";
 import { FloatingFocusManager, FloatingPortal, useFloating } from "@floating-ui/react";
 import { Command } from "cmdk";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -7,7 +7,7 @@ import { useModalStackStore } from "@/stores/modal-stack";
 import { getEffectiveKeysArray } from "@/stores/shortcut-bindings";
 import { PALETTE_COMMANDS, type PaletteCommandId } from "@/ui/command-palette-commands";
 import { CommandRow, ProjectRow } from "@/ui/command-palette-row";
-import { formatKey } from "@/ui/shortcut-reference";
+import { InlineKeyBadge } from "@/ui/inline-key-badge";
 import { cn } from "@/utils/cn";
 
 // -- Types --------------------------------------------------------------------
@@ -30,35 +30,22 @@ const PALETTE_GROUP_HEADING_CLASSES = cn(
 
 // -- Sub-components -----------------------------------------------------------
 
-const FooterKey: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded text-[11px] font-medium bg-composer-button text-composer-text-secondary border border-composer-border">
-    {children}
-  </span>
-);
-
 const PaletteFooter: React.FC<{ paletteKeys: string[] }> = ({ paletteKeys }) => (
-  <div className="flex items-center gap-4 px-4 py-2 border-t border-composer-border bg-black/20 text-[11px] text-composer-text-muted font-mono select-none">
+  <div className="flex items-center gap-4 px-4 py-2 border-t border-composer-border bg-black/20 text-[11px] text-composer-text-muted select-none">
     <span className="inline-flex items-center gap-1.5">
-      <FooterKey>
-        <IconCornerDownLeft className="size-3" />
-      </FooterKey>
+      <InlineKeyBadge keys={["Enter"]} trailing={false} />
       open
     </span>
     <span className="inline-flex items-center gap-1.5">
-      <FooterKey>
-        <IconArrowUp className="size-3" />
-      </FooterKey>
-      <FooterKey>
-        <IconArrowDown className="size-3" />
-      </FooterKey>
+      <InlineKeyBadge keys={["ArrowUp", "ArrowDown"]} trailing={false} />
       navigate
     </span>
+    <span className="inline-flex items-center gap-1.5">
+      <InlineKeyBadge keys={["Esc"]} trailing={false} />
+      close
+    </span>
     <span className="ml-auto inline-flex items-center gap-1.5">
-      <span className="inline-flex items-center gap-0.5">
-        {paletteKeys.map((key) => (
-          <FooterKey key={key}>{formatKey(key)}</FooterKey>
-        ))}
-      </span>
+      <InlineKeyBadge keys={paletteKeys} trailing={false} />
       palette
     </span>
   </div>
@@ -155,9 +142,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onOpenChange, onO
                   placeholder="Find a project, command, or shortcut…"
                   className="flex-1 bg-transparent outline-none text-[15px] text-composer-text placeholder:text-composer-text-muted"
                 />
-                <span className="inline-flex items-center justify-center min-w-6 h-5 px-1.5 rounded text-[11px] font-medium bg-composer-button text-composer-text-secondary border border-composer-border select-none">
-                  esc
-                </span>
+                <InlineKeyBadge keys={["Esc"]} trailing={false} />
               </div>
 
               <Command.List className="max-h-[420px] overflow-y-auto p-1.5">

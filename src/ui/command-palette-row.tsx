@@ -3,8 +3,8 @@ import type { LibraryProject } from "@/domain/project/library-project";
 import { syncStateOf, type SyncState } from "@/domain/project/sync-state";
 import { getEffectiveKeysArray } from "@/stores/shortcut-bindings";
 import type { PaletteCommandDescriptor } from "@/ui/command-palette-commands";
+import { InlineKeyBadge } from "@/ui/inline-key-badge";
 import { WaveformFallback } from "@/ui/library/waveform-fallback";
-import { formatKey } from "@/ui/shortcut-reference";
 import { cn } from "@/utils/cn";
 import { formatTime } from "@/utils/format-time";
 
@@ -29,18 +29,6 @@ const PALETTE_ITEM_CLASSES = cn(
 );
 
 // -- Sub-components -----------------------------------------------------------
-
-const InlineShortcutHint: React.FC<{ shortcutId: string }> = ({ shortcutId }) => {
-  const keys = getEffectiveKeysArray(shortcutId);
-  if (keys.length === 0) return null;
-  return (
-    <span className="inline-flex items-center gap-1 text-[11px] text-composer-text-faint font-mono">
-      {keys.map((key) => (
-        <span key={key}>{formatKey(key)}</span>
-      ))}
-    </span>
-  );
-};
 
 const PaletteSyncBadge: React.FC<{ state: SyncState }> = ({ state }) => (
   <span className="inline-flex items-center gap-1.5 text-[11px] text-composer-text-faint">
@@ -101,7 +89,7 @@ const CommandRow: React.FC<CommandRowProps> = ({ command, onSelect }) => {
         <span className="block text-[13px] font-medium truncate">{command.name}</span>
         <span className="block text-[11px] text-composer-text-muted truncate">{command.sub}</span>
       </span>
-      {command.shortcutId && <InlineShortcutHint shortcutId={command.shortcutId} />}
+      {command.shortcutId && <InlineKeyBadge keys={getEffectiveKeysArray(command.shortcutId)} trailing={false} />}
     </Command.Item>
   );
 };
