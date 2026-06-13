@@ -5,6 +5,7 @@ import { saveActiveProject } from "@/lib/library-save";
 import { createProjectFromAudio } from "@/lib/create-project";
 import { openLibraryProject } from "@/lib/library-resume";
 import { parseLyricsFile } from "@/utils/lyrics-parsers";
+import { generateTTML } from "@/utils/ttml";
 import { importParsedLyrics } from "@/views/lyrics-import-modal/use-import-modal-actions";
 import { useProjectStore } from "@/stores/project";
 
@@ -105,6 +106,56 @@ describe("TTML import → store → persist roundtrip", () => {
 
     const memLines = useProjectStore.getState().lines;
     expect(memLines.every((l) => l.words && l.words.length > 0)).toBe(true);
+  });
+
+  it("regression: import promotes the project's granularity field to match imported word timing", async () => {
+    const file = new File(["data"], "audio.wav", { type: "audio/wav" });
+    const id = await createProjectFromAudio({ kind: "file", file }, { audioBlobs });
+    await openLibraryProject(id, { audioBlobs });
+
+    useProjectStore.getState().setGranularity("line");
+
+    const parsed = parseLyricsFile("real.ttml", minifiedComposerExportTtml);
+    await importParsedLyrics(parsed, {
+      confirm: async () => true,
+      agents: useProjectStore.getState().agents,
+      audioDuration: 0,
+      applyBackgroundExtraction: false,
+      backgroundExtractionMergeStandalone: false,
+      backgroundExtractionPreserveBrackets: false,
+      source: { label: "test", filename: "real.ttml" },
+    });
+
+    expect(useProjectStore.getState().granularity).toBe("word");
+  });
+
+  it("regression: exported TTML emits <span> per word when the lines have populated words, regardless of granularity field", async () => {
+    const file = new File(["data"], "audio.wav", { type: "audio/wav" });
+    const id = await createProjectFromAudio({ kind: "file", file }, { audioBlobs });
+    await openLibraryProject(id, { audioBlobs });
+
+    const parsed = parseLyricsFile("real.ttml", minifiedComposerExportTtml);
+    await importParsedLyrics(parsed, {
+      confirm: async () => true,
+      agents: useProjectStore.getState().agents,
+      audioDuration: 0,
+      applyBackgroundExtraction: false,
+      backgroundExtractionMergeStandalone: false,
+      backgroundExtractionPreserveBrackets: false,
+      source: { label: "test", filename: "real.ttml" },
+    });
+
+    const state = useProjectStore.getState();
+    const ttml = generateTTML({
+      metadata: state.metadata,
+      agents: state.agents,
+      lines: state.lines,
+      groups: state.groups,
+      granularity: "line",
+      minify: true,
+    });
+    expect(ttml).toContain('composer:timing="Word"');
+    expect(ttml).toMatch(/<span begin="[^"]+" end="[^"]+">Fallen<\/span>/);
   });
 
   it("regression: composer-export TTML re-imports as word-synced even with background extraction enabled", async () => {

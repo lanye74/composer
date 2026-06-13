@@ -3,6 +3,7 @@ import { DEFAULT_SYLLABLE_SPLIT_DEFAULTS } from "@/domain/project/syllable-split
 import type { AudioBlobStore } from "@/lib/audio-blob-store";
 import { putLibraryProject } from "@/lib/library-persistence";
 import type { SavedAudioSource } from "@/lib/persistence";
+import { useSettingsStore } from "@/stores/settings";
 
 // -- Types --------------------------------------------------------------------
 
@@ -87,7 +88,7 @@ async function createProjectFromAudio(input: CreateProjectInput, deps: CreatePro
     agents: [],
     lines: [],
     groups: [],
-    granularity: "line",
+    granularity: useSettingsStore.getState().defaultGranularity,
     syllableSplitDefaults: DEFAULT_SYLLABLE_SPLIT_DEFAULTS,
     dismissedSuggestions: [],
     dismissedExplicitSuggestions: [],

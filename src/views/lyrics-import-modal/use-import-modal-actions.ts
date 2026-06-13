@@ -74,6 +74,7 @@ async function importParsedLyrics(parsed: ParseResult, ctx: ImportParsedLyricsCo
   const store = useProjectStore.getState();
   store.setLines(workingLines);
   store.setGroups(parsed.groups ?? []);
+  store.setGranularity(workingLines.some((l) => l.words?.length) ? "word" : "line");
 
   if (Object.keys(parsed.metadata).length > 0) {
     store.setMetadata(parsed.metadata);

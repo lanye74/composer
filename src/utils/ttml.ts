@@ -29,7 +29,7 @@ interface TTMLOptions {
   duration?: number;
 }
 
-function generateTTML({ metadata, agents, lines, groups, granularity, minify = false, duration }: TTMLOptions): string {
+function generateTTML({ metadata, agents, lines, groups, minify = false, duration }: TTMLOptions): string {
   const nl = minify ? "" : "\n";
   const ind = (n: number) => (minify ? "" : "  ".repeat(n));
 
@@ -84,7 +84,7 @@ function generateTTML({ metadata, agents, lines, groups, granularity, minify = f
       : "";
     let content = "";
 
-    if (granularity === "word" && line.words?.length) {
+    if (line.words?.length) {
       const words = line.words;
       const wordCount = words.length;
       for (let i = 0; i < wordCount; i++) {

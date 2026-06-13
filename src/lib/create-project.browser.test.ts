@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MemoryAudioBlobStore } from "@/lib/audio-blob-store";
 import { createProjectFromAudio } from "@/lib/create-project";
 import { getLibraryProject } from "@/lib/library-persistence";
+import { useSettingsStore } from "@/stores/settings";
 
 // -- Helpers ------------------------------------------------------------------
 
@@ -176,15 +177,27 @@ describe("create-project · invariants", () => {
     expect(stored?.dismissedExplicitSuggestions).toEqual([]);
   });
 
-  it("defaults granularity to line and currentStem to original", async () => {
+  it("inherits granularity from the user's defaultGranularity setting and defaults currentStem to original", async () => {
+    useSettingsStore.setState({ defaultGranularity: "word" });
     const audioBlobs = new MemoryAudioBlobStore();
     const file = makeAudioFile("defaults.mp3");
 
     const id = await createProjectFromAudio({ kind: "file", file }, { audioBlobs });
 
     const stored = await getLibraryProject(id);
-    expect(stored?.granularity).toBe("line");
+    expect(stored?.granularity).toBe("word");
     expect(stored?.currentStem).toBe("original");
     expect(stored?.primingStripped).toBe(false);
+  });
+
+  it("honors a line-default setting when creating a new project", async () => {
+    useSettingsStore.setState({ defaultGranularity: "line" });
+    const audioBlobs = new MemoryAudioBlobStore();
+    const file = makeAudioFile("line-default.mp3");
+
+    const id = await createProjectFromAudio({ kind: "file", file }, { audioBlobs });
+
+    const stored = await getLibraryProject(id);
+    expect(stored?.granularity).toBe("line");
   });
 });
