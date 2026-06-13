@@ -12,6 +12,11 @@ interface SaveDeps {
   audioBlobs: AudioBlobStore;
 }
 
+interface AudioFieldsPatch {
+  audioBytesCached: boolean;
+  audioSource: SavedAudioSource | undefined;
+}
+
 // -- Helpers ------------------------------------------------------------------
 
 function toSavedAudioSource(source: AudioSource): SavedAudioSource | undefined {
@@ -56,9 +61,9 @@ function snapshotLiveState(id: string): LiveStateSnapshot {
   };
 }
 
-function mergeSnapshot(snapshot: LiveStateSnapshot, previous: LibraryProject | undefined): LibraryProject {
+function buildFreshRecord(snapshot: LiveStateSnapshot): LibraryProject {
   const now = Date.now();
-  const base: LibraryProject = previous ?? {
+  return {
     version: 1,
     id: snapshot.id,
     metadata: snapshot.metadata,
@@ -77,6 +82,10 @@ function mergeSnapshot(snapshot: LiveStateSnapshot, previous: LibraryProject | u
     updatedAt: now,
     lastOpenedAt: now,
   };
+}
+
+function mergeSnapshot(snapshot: LiveStateSnapshot, previous: LibraryProject | undefined): LibraryProject {
+  const base = previous ?? buildFreshRecord(snapshot);
   return {
     ...base,
     metadata: snapshot.metadata,
@@ -90,7 +99,7 @@ function mergeSnapshot(snapshot: LiveStateSnapshot, previous: LibraryProject | u
     currentStem: snapshot.currentStem,
     primingStripped: snapshot.primingStripped,
     audioSource: snapshot.audioSource,
-    updatedAt: now,
+    updatedAt: Date.now(),
   };
 }
 
@@ -107,25 +116,23 @@ async function saveActiveProject(): Promise<void> {
 async function saveActiveProjectAudio(file: File | null, deps: SaveDeps): Promise<void> {
   const id = useProjectStore.getState().activeProjectId;
   if (!id) return;
+  const snapshot = snapshotLiveState(id);
+
   if (file === null) {
     await deps.audioBlobs.delete(id);
-    await mutateAudioFields(id, { audioBytesCached: false, audioSource: undefined });
+    await applyAudioPatch(snapshot, { audioBytesCached: false, audioSource: undefined });
     return;
   }
+
   const bytes = await file.arrayBuffer();
   await deps.audioBlobs.put(id, bytes);
-  const audioSource = toSavedAudioSource(useAudioStore.getState().source);
-  await mutateAudioFields(id, { audioBytesCached: true, audioSource });
+  await applyAudioPatch(snapshot, { audioBytesCached: true, audioSource: snapshot.audioSource });
 }
 
-async function mutateAudioFields(
-  id: string,
-  patch: { audioBytesCached: boolean; audioSource: SavedAudioSource | undefined },
-): Promise<void> {
-  const previous = await getLibraryProject(id);
+async function applyAudioPatch(snapshot: LiveStateSnapshot, patch: AudioFieldsPatch): Promise<void> {
+  const previous = await getLibraryProject(snapshot.id);
   if (!previous) {
-    const snapshot = snapshotLiveState(id);
-    const fresh = mergeSnapshot(snapshot, undefined);
+    const fresh = buildFreshRecord(snapshot);
     await putLibraryProject({ ...fresh, ...patch });
     return;
   }

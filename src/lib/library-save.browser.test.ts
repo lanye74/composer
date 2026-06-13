@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { LibraryProject } from "@/domain/project/library-project";
-import { MemoryAudioBlobStore } from "@/lib/audio-blob-store";
+import { type AudioBlobStore, MemoryAudioBlobStore } from "@/lib/audio-blob-store";
 import { getLibraryProject, putLibraryProject } from "@/lib/library-persistence";
 import { saveActiveProject, saveActiveProjectAudio } from "@/lib/library-save";
+import { useAudioStore } from "@/stores/audio";
 import { useProjectStore } from "@/stores/project";
 import { DEFAULT_SYLLABLE_SPLIT_DEFAULTS } from "@/stores/project/types";
 
@@ -164,5 +165,66 @@ describe("library-save · invariants", () => {
     expect(reloaded?.pinned).toBe(true);
     expect(reloaded?.cachedWaveformDataUrl).toBe("data:image/svg+xml;base64,abc");
     expect(reloaded?.metadata.title).toBe("Persisted");
+  });
+});
+
+// -- Races --------------------------------------------------------------------
+
+class SlowAudioBlobStore implements AudioBlobStore {
+  private readonly inner = new MemoryAudioBlobStore();
+  private readonly delayMs: number;
+  private readonly onPut?: () => void;
+
+  constructor(delayMs: number, onPut?: () => void) {
+    this.delayMs = delayMs;
+    this.onPut = onPut;
+  }
+
+  async get(projectId: string) {
+    return this.inner.get(projectId);
+  }
+  async put(projectId: string, bytes: ArrayBuffer) {
+    this.onPut?.();
+    await new Promise((r) => setTimeout(r, this.delayMs));
+    await this.inner.put(projectId, bytes);
+  }
+  async delete(projectId: string) {
+    await new Promise((r) => setTimeout(r, this.delayMs));
+    await this.inner.delete(projectId);
+  }
+  async has(projectId: string) {
+    return this.inner.has(projectId);
+  }
+  async listIds() {
+    return this.inner.listIds();
+  }
+}
+
+describe("library-save · concurrency races", () => {
+  it("regression: setActiveProject during audio save does not leak the new project's audio source into the old record", async () => {
+    await putLibraryProject(makeProject("A", { metadata: { title: "A song", artist: "", album: "", duration: 0 } }));
+    await putLibraryProject(makeProject("B", { metadata: { title: "B song", artist: "", album: "", duration: 0 } }));
+
+    const audioBlobs = new MemoryAudioBlobStore();
+    await useProjectStore.getState().setActiveProject("A", { audioBlobs });
+
+    const aFile = new File([new Uint8Array([1, 2, 3])], "a-track.mp3", { type: "audio/mpeg" });
+    useAudioStore.getState().setSource({ type: "file", file: aFile });
+
+    const slow = new SlowAudioBlobStore(40, () => {
+      void (async () => {
+        await useProjectStore.getState().setActiveProject("B", { audioBlobs });
+        useAudioStore
+          .getState()
+          .setSource({ type: "file", file: new File([new Uint8Array([9])], "b-track.mp3", { type: "audio/mpeg" }) });
+      })();
+    });
+
+    await saveActiveProjectAudio(aFile, { audioBlobs: slow });
+    await new Promise((r) => setTimeout(r, 20));
+
+    const reloadedA = await getLibraryProject("A");
+    expect(reloadedA?.audioSource).toEqual({ kind: "file", name: "a-track.mp3" });
+    expect(reloadedA?.audioBytesCached).toBe(true);
   });
 });
