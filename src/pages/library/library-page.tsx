@@ -1,11 +1,13 @@
 import { IconSearch } from "@tabler/icons-react";
-import { useMemo, useState } from "react";
+import { type MouseEvent, useCallback, useMemo, useState } from "react";
 import type { LibraryProject } from "@/domain/project/library-project";
+import { useLibraryActions } from "@/hooks/useLibraryActions";
 import { useLibraryProjects } from "@/hooks/useLibraryProjects";
 import { EmptyState } from "@/ui/empty-state";
 import { LibraryToolbar } from "@/ui/library/library-toolbar";
 import { NewProjectCard } from "@/ui/library/new-project-card";
 import { ProjectCard } from "@/ui/library/project-card";
+import { ProjectCardContextMenu, type ProjectCardAction } from "@/ui/library/project-card-context-menu";
 import { cn } from "@/utils/cn";
 import { filterProjects, type FilterChip, type SortKey, sortProjects } from "@/utils/library/filter-sort";
 import { MOD_KEY } from "@/utils/platform";
@@ -16,6 +18,12 @@ interface LibraryPageProps {
   onOpenProject: (id: string) => void;
   onNewProject: () => void;
   onOpenSearch?: () => void;
+}
+
+interface MenuState {
+  project: LibraryProject;
+  x: number;
+  y: number;
 }
 
 // -- Helpers ------------------------------------------------------------------
@@ -78,11 +86,75 @@ const LibraryPage: React.FC<LibraryPageProps> = ({ onOpenProject, onNewProject, 
   const { data: projects = [], isPending } = useLibraryProjects();
   const [filter, setFilter] = useState<FilterChip>("all");
   const [sort, setSort] = useState<SortKey>("recent");
+  const [menu, setMenu] = useState<MenuState | null>(null);
+  const [renamingId, setRenamingId] = useState<string | undefined>(undefined);
+  const actions = useLibraryActions();
 
   const filteredSorted = useMemo(() => sortProjects(filterProjects(projects, filter), sort), [projects, filter, sort]);
 
   const { pinned, rest } = useMemo(() => partitionPinned(filteredSorted), [filteredSorted]);
   const isEmpty = !isPending && projects.length === 0;
+
+  const openMenu = useCallback(
+    (event: MouseEvent, id: string) => {
+      const project = projects.find((p) => p.id === id);
+      if (!project) return;
+      setMenu({ project, x: event.clientX, y: event.clientY });
+    },
+    [projects],
+  );
+
+  const handleAction = useCallback(
+    async (action: ProjectCardAction) => {
+      if (!menu) return;
+      const id = menu.project.id;
+      if (action === "open") {
+        onOpenProject(id);
+        return;
+      }
+      if (action === "rename") {
+        setRenamingId(id);
+        return;
+      }
+      if (action === "duplicate") {
+        await actions.duplicate(id);
+        return;
+      }
+      if (action === "pin-toggle") {
+        await actions.togglePin(id);
+        return;
+      }
+      if (action === "evict-audio") {
+        await actions.evictAudio(id);
+        return;
+      }
+      if (action === "export-ttml") {
+        await actions.exportTtml(id);
+        return;
+      }
+      if (action === "export-project-json") {
+        await actions.exportProjectJson(id);
+        return;
+      }
+      if (action === "delete") {
+        await actions.delete(id);
+        return;
+      }
+    },
+    [menu, onOpenProject, actions],
+  );
+
+  const handleRenameCommit = useCallback(
+    async (id: string, title: string) => {
+      setRenamingId(undefined);
+      await actions.rename(id, title);
+    },
+    [actions],
+  );
+
+  const handleRenameCancel = useCallback(() => {
+    setRenamingId(undefined);
+  }, []);
 
   if (isEmpty) {
     return (
@@ -129,7 +201,15 @@ const LibraryPage: React.FC<LibraryPageProps> = ({ onOpenProject, onNewProject, 
           </SectionLabel>
           <Grid>
             {pinned.map((project) => (
-              <ProjectCard key={project.id} project={project} onOpen={onOpenProject} />
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onOpen={onOpenProject}
+                onContextMenu={openMenu}
+                isRenaming={renamingId === project.id}
+                onRenameCommit={handleRenameCommit}
+                onRenameCancel={handleRenameCancel}
+              />
             ))}
           </Grid>
         </section>
@@ -142,10 +222,28 @@ const LibraryPage: React.FC<LibraryPageProps> = ({ onOpenProject, onNewProject, 
         <Grid>
           <NewProjectCard onClick={onNewProject} />
           {rest.map((project) => (
-            <ProjectCard key={project.id} project={project} onOpen={onOpenProject} />
+            <ProjectCard
+              key={project.id}
+              project={project}
+              onOpen={onOpenProject}
+              onContextMenu={openMenu}
+              isRenaming={renamingId === project.id}
+              onRenameCommit={handleRenameCommit}
+              onRenameCancel={handleRenameCancel}
+            />
           ))}
         </Grid>
       </section>
+
+      {menu && (
+        <ProjectCardContextMenu
+          open
+          position={{ x: menu.x, y: menu.y }}
+          project={menu.project}
+          onClose={() => setMenu(null)}
+          onAction={handleAction}
+        />
+      )}
     </main>
   );
 };

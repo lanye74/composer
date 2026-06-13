@@ -88,7 +88,9 @@ describe("useLibraryActions.rename", () => {
   });
 
   it("ignores an empty title and keeps the original", async () => {
-    await putLibraryProject(makeProject({ id: "r-3", metadata: { title: "Keep", artist: "", album: "", duration: 0 } }));
+    await putLibraryProject(
+      makeProject({ id: "r-3", metadata: { title: "Keep", artist: "", album: "", duration: 0 } }),
+    );
     const { result } = await renderHook(() => useLibraryActions(), { wrapper: buildWrapper() });
 
     await result.current.rename("r-3", "");
@@ -97,7 +99,9 @@ describe("useLibraryActions.rename", () => {
   });
 
   it("ignores a whitespace-only title", async () => {
-    await putLibraryProject(makeProject({ id: "r-4", metadata: { title: "Keep", artist: "", album: "", duration: 0 } }));
+    await putLibraryProject(
+      makeProject({ id: "r-4", metadata: { title: "Keep", artist: "", album: "", duration: 0 } }),
+    );
     const { result } = await renderHook(() => useLibraryActions(), { wrapper: buildWrapper() });
 
     await result.current.rename("r-4", "   ");

@@ -5,10 +5,12 @@ import { render as baseRender } from "vitest-browser-react";
 import { describe, expect, it, vi } from "vitest";
 import type { LibraryProject } from "@/domain/project/library-project";
 import { LIBRARY_PROJECTS_QUERY_KEY } from "@/hooks/useLibraryProjects";
-import { putLibraryProject } from "@/lib/library-persistence";
+import { getLibraryProject, listLibraryProjects, putLibraryProject } from "@/lib/library-persistence";
 import { LibraryPage } from "@/pages/library/library-page";
+import { useConfirmStore } from "@/stores/confirm-store";
 import { createLine } from "@/test/factories";
 import { render } from "@/test/render";
+import { ConfirmModalHost } from "@/ui/confirm-modal";
 
 // -- Helpers ------------------------------------------------------------------
 
@@ -185,6 +187,67 @@ describe("LibraryPage", () => {
       const firstChip = screen.getByRole("tab", { name: "All" }).element() as HTMLElement;
       firstChip.focus();
       await expect.poll(() => document.activeElement).toBe(firstChip);
+    });
+  });
+
+  describe("actions wiring", () => {
+    function findMenuItem(label: string): HTMLElement | undefined {
+      const items = document.querySelectorAll<HTMLElement>("[role='menuitem']");
+      return Array.from(items).find((el) => (el.textContent ?? "").startsWith(label));
+    }
+
+    it("right-clicking a card opens the context menu", async () => {
+      await putLibraryProject(makeProject({ id: "ctx-open", lastOpenedAt: 1 }));
+      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      await expect.element(screen.getByText("Title-ctx-open")).toBeInTheDocument();
+      const card = screen.getByRole("button", { name: /Title-ctx-open/ }).element() as HTMLElement;
+      card.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+      await expect.poll(() => findMenuItem("Open")).toBeDefined();
+    });
+
+    it("clicking 'Rename' from the menu starts inline edit on the card", async () => {
+      await putLibraryProject(makeProject({ id: "rn", lastOpenedAt: 1 }));
+      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      await expect.element(screen.getByText("Title-rn")).toBeInTheDocument();
+      const card = screen.getByRole("button", { name: /Title-rn/ }).element() as HTMLElement;
+      card.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+      await expect.poll(() => findMenuItem("Rename")).toBeDefined();
+      findMenuItem("Rename")?.click();
+      await expect.poll(() => screen.container.querySelector("input[aria-label='Project title']")).not.toBeNull();
+    });
+
+    it("clicking 'Pin to top' moves the project to the top after invalidation", async () => {
+      await putLibraryProject(makeProject({ id: "a", lastOpenedAt: 10 }));
+      await putLibraryProject(makeProject({ id: "b", lastOpenedAt: 100 }));
+      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      await expect.element(screen.getByText("Title-a")).toBeInTheDocument();
+
+      const card = screen.getByRole("button", { name: /Title-a/ }).element() as HTMLElement;
+      card.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+      await expect.poll(() => findMenuItem("Pin to top")).toBeDefined();
+      findMenuItem("Pin to top")?.click();
+
+      await expect.poll(async () => (await getLibraryProject("a"))?.pinned).toBe(true);
+      await expect
+        .poll(() => screen.container.querySelector("section[aria-labelledby='library-pinned-heading']"))
+        .not.toBeNull();
+    });
+
+    it("clicking 'Delete' and confirming removes the project from the list", async () => {
+      await putLibraryProject(makeProject({ id: "del", lastOpenedAt: 1 }));
+      await render(<ConfirmModalHost />);
+      const screen = await render(<LibraryPage onOpenProject={noop} onNewProject={noop} />);
+      await expect.element(screen.getByText("Title-del")).toBeInTheDocument();
+
+      const card = screen.getByRole("button", { name: /Title-del/ }).element() as HTMLElement;
+      card.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+      await expect.poll(() => findMenuItem("Delete")).toBeDefined();
+      findMenuItem("Delete")?.click();
+
+      await expect.poll(() => useConfirmStore.getState().isOpen).toBe(true);
+      useConfirmStore.getState().resolveAndClose(true, false);
+
+      await expect.poll(async () => (await listLibraryProjects()).find((p) => p.id === "del")).toBeUndefined();
     });
   });
 
