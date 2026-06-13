@@ -38,10 +38,10 @@ const SYNC_ICON: Record<SyncState, ComponentType<TablerIconProps>> = {
   empty: IconMusic,
 };
 
-const SYNC_ICON_CLASS: Record<SyncState, string> = {
-  synced: "text-composer-success",
-  partial: "text-composer-warning",
-  empty: "text-composer-text-tertiary",
+const SYNC_CHIP_CLASS: Record<SyncState, string> = {
+  synced: "bg-composer-success/20 text-composer-success border-composer-success/30",
+  partial: "bg-composer-warning/20 text-composer-warning border-composer-warning/30",
+  empty: "bg-composer-bg-elevated/85 text-composer-text-secondary border-composer-border",
 };
 
 function focusAndSelectOnMount(node: HTMLInputElement | null) {
@@ -157,14 +157,14 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
         )}
         <span
           aria-label={SYNC_LABEL[state]}
-          title={SYNC_LABEL[state]}
           className={cn(
-            "absolute top-2 left-2 inline-flex items-center justify-center size-6 rounded-full",
-            "bg-composer-bg-dark/80 border border-composer-border",
-            "drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]",
+            "absolute top-2 left-2 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border",
+            "text-[10px] font-medium drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]",
+            SYNC_CHIP_CLASS[state],
           )}
         >
-          <SyncIcon className={cn("size-3.5", SYNC_ICON_CLASS[state])} />
+          <SyncIcon className="size-3" />
+          {SYNC_LABEL[state]}
         </span>
         <button
           type="button"
@@ -172,8 +172,10 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
           onClick={handleMoreClick}
           className={cn(
             "absolute top-1.5 right-1.5 size-6.5 rounded-md inline-flex items-center justify-center",
-            "bg-black/50 text-white/85 cursor-pointer opacity-0 transition-opacity",
-            "group-hover:opacity-100 hover:bg-black/70 focus-visible:opacity-100 focus-visible:outline-none",
+            "bg-composer-bg-elevated/85 border border-composer-border text-composer-text-secondary",
+            "cursor-pointer opacity-0 transition-opacity",
+            "group-hover:opacity-100 hover:bg-composer-button-hover hover:text-composer-text",
+            "focus-visible:opacity-100 focus-visible:outline-none",
           )}
         >
           <IconDots className="size-4" />
