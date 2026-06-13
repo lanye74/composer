@@ -77,7 +77,7 @@ const LibraryToolbar: React.FC<LibraryToolbarProps> = ({ filter, onFilterChange,
         }
       >
         {(close) => (
-          <div role="menu" className="p-1 min-w-45 space-y-px">
+          <div role="menu" className="p-1 min-w-45 space-y-px [&_[role=menuitem]]:rounded-lg">
             {SORTS.map(({ key, label }) => (
               <MenuItem
                 key={key}
