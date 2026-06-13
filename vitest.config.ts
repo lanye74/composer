@@ -22,6 +22,7 @@ export default defineConfig({
       "motion/react",
       "@dnd-kit/core",
       "react-router-dom",
+      "cmdk",
     ],
   },
   test: {
