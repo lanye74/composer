@@ -220,5 +220,41 @@ describe("ProjectCardContextMenu", () => {
       const last = findMenuItem("Delete");
       await expect.poll(() => document.activeElement).toBe(last);
     });
+
+    it("closes when the user clicks outside the menu", async () => {
+      const project = makeProject();
+      const onClose = vi.fn();
+      await render(
+        <>
+          <div data-testid="outside" style={{ width: 200, height: 200 }}>
+            outside area
+          </div>
+          <ProjectCardContextMenu
+            open
+            position={{ x: 50, y: 50 }}
+            project={project}
+            onClose={onClose}
+            onAction={noop}
+          />
+        </>,
+      );
+      await expect.poll(() => findMenuItem("Open")).toBeDefined();
+      const outside = document.querySelector<HTMLElement>("[data-testid='outside']");
+      expect(outside).not.toBeNull();
+      outside?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      expect(onClose).toHaveBeenCalled();
+    });
+
+    it("does not close when the user clicks inside the menu", async () => {
+      const project = makeProject();
+      const onClose = vi.fn();
+      await render(
+        <ProjectCardContextMenu open position={{ x: 50, y: 50 }} project={project} onClose={onClose} onAction={noop} />,
+      );
+      await expect.poll(() => findMenuItem("Open")).toBeDefined();
+      const inside = findMenuItem("Open");
+      inside?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      expect(onClose).not.toHaveBeenCalled();
+    });
   });
 });
