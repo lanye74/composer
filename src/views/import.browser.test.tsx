@@ -334,7 +334,7 @@ describe("ImportPanel: videoId-gated thumb fallback", () => {
 
 // -- File drop creates library project ---------------------------------------
 
-describe("ImportPanel — drop creates a library project", () => {
+describe("ImportPanel: drop creates a library project", () => {
   it("creates a library entry when a file is dropped on the empty zone", async () => {
     useAudioStore.setState({ source: null });
     useUIStore.setState({ viewingLibrary: true });

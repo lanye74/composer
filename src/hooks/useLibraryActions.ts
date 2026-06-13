@@ -166,7 +166,7 @@ function useLibraryActions(): LibraryActionsApi {
     async (id: string): Promise<boolean> => {
       const ok = await confirm({
         title: "Delete this project?",
-        description: "This removes the project and its audio from your library. Cmd+Z does not bring it back.",
+        description: "This permanently removes the project and its audio. This cannot be undone.",
         variant: "destructive",
         confirmLabel: "Delete",
         recoverable: false,
