@@ -224,7 +224,7 @@ describe("LibraryPage", () => {
       await putLibraryProject(makeProject({ id: "kbd-1", lastOpenedAt: 1 }));
       const screen = await render(<LibraryPage onOpenProject={noop} />);
       await screen.getByRole("button", { name: /Recently opened/ }).click();
-      await expect.element(screen.getByRole("button", { name: "Title A to Z" })).toBeInTheDocument();
+      await expect.element(screen.getByRole("menuitem", { name: "Title A to Z" })).toBeInTheDocument();
       await userEvent.keyboard("{Escape}");
       await expect.poll(() => screen.container.querySelector("[role='dialog']")).toBeNull();
     });
@@ -317,7 +317,7 @@ describe("LibraryPage", () => {
       await expect.element(screen.getByText("Alpha")).toBeInTheDocument();
 
       await screen.getByRole("button", { name: /Recently opened/ }).click();
-      await screen.getByRole("button", { name: "Title A to Z" }).click();
+      await screen.getByRole("menuitem", { name: "Title A to Z" }).click();
 
       const cards = screen.container.querySelectorAll("[role='button']");
       const titles = Array.from(cards)
