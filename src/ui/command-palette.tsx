@@ -129,7 +129,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onOpenChange, onO
             className={cn(
               "w-[520px] max-w-[92vw]",
               "bg-composer-bg-elevated border border-composer-border rounded-xl overflow-hidden",
-              "shadow-[0_24px_50px_-12px_rgba(0,0,0,0.7)] text-composer-text",
+              "shadow-2xl text-composer-text",
             )}
           >
             <Command label="Command palette" loop>
