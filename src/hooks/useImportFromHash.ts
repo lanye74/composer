@@ -1,4 +1,3 @@
-import { loadCurrentProject } from "@/lib/persistence";
 import { getPersistenceSettled, markHashImportSettled } from "@/lib/persistence-settled";
 import { useConfirm } from "@/stores/confirm-store";
 import { useProjectStore } from "@/stores/project";
@@ -28,16 +27,11 @@ function isValidPayload(value: unknown): value is ImportPayload {
   );
 }
 
-async function isProjectNonEmpty(): Promise<boolean> {
+function isProjectNonEmpty(): boolean {
   const state = useProjectStore.getState();
   if (state.lines.length > 0) return true;
   const { title, artist, album } = state.metadata;
-  if (title || artist || album) return true;
-
-  const saved = await loadCurrentProject();
-  if (!saved) return false;
-  if (saved.lines.length > 0) return true;
-  return Boolean(saved.metadata.title || saved.metadata.artist || saved.metadata.album);
+  return Boolean(title || artist || album);
 }
 
 function useImportFromHash(): void {
@@ -69,7 +63,7 @@ function useImportFromHash(): void {
         await getPersistenceSettled();
         if (import.meta.env.DEV) console.log("[Boot] useImportFromHash settled");
 
-        if (await isProjectNonEmpty()) {
+        if (isProjectNonEmpty()) {
           const ok = await confirm({
             title: "Replace current project?",
             description:

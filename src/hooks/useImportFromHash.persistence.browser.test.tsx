@@ -1,11 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useImportFromHash } from "@/hooks/useImportFromHash";
 import { usePersistence } from "@/hooks/usePersistence";
 import { getHashImportSettled, getPersistenceSettled } from "@/lib/persistence-settled";
+import { useConfirmStore } from "@/stores/confirm-store";
 import { useProjectStore } from "@/stores/project";
 import { useSettingsStore } from "@/stores/settings";
 import { allowConsole } from "@/test/console-guard";
-import { seedProject } from "@/test/idb";
+import { seedLibraryProject, seedProject } from "@/test/idb";
 import { render } from "@/test/render";
 
 // -- Constants ----------------------------------------------------------------
@@ -156,5 +157,63 @@ describe("usePersistence + useImportFromHash — hash overrides persistence", ()
     await waitForBootSettled();
 
     expect(useProjectStore.getState().granularity).toBe("word");
+  });
+});
+
+describe("useImportFromHash — library state drives the confirm prompt", () => {
+  beforeEach(() => {
+    setQuery("");
+    setHash("");
+  });
+
+  afterEach(() => {
+    setQuery("");
+    setHash("");
+  });
+
+  it("prompts when a library project is the active one with non-empty lines", async () => {
+    await seedLibraryProject("lib-1", {
+      metadata: { title: SAVED_TITLE, artist: "", album: "", duration: 0 },
+      lines: [{ id: "l", text: "library line", agentId: "v1" }],
+      agents: [SAVED_AGENT],
+    });
+    const confirmSpy = vi.fn().mockResolvedValue(true);
+    useConfirmStore.setState({ open: confirmSpy });
+    setHash(encodeHashPayload(importedPayload()));
+
+    await render(<HookHost />);
+    await waitForBootSettled();
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(useProjectStore.getState().metadata.title).toBe(IMPORTED_TITLE);
+  });
+
+  it("does not prompt when no project is active and no in-memory state exists", async () => {
+    const confirmSpy = vi.fn().mockResolvedValue(true);
+    useConfirmStore.setState({ open: confirmSpy });
+    setHash(encodeHashPayload(importedPayload()));
+
+    await render(<HookHost />);
+    await waitForBootSettled();
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(useProjectStore.getState().metadata.title).toBe(IMPORTED_TITLE);
+  });
+
+  it("cancelling the prompt leaves the active library project untouched", async () => {
+    await seedLibraryProject("lib-1", {
+      metadata: { title: SAVED_TITLE, artist: "", album: "", duration: 0 },
+      lines: [{ id: "l", text: "library line", agentId: "v1" }],
+      agents: [SAVED_AGENT],
+    });
+    const confirmSpy = vi.fn().mockResolvedValue(false);
+    useConfirmStore.setState({ open: confirmSpy });
+    setHash(encodeHashPayload(importedPayload()));
+
+    await render(<HookHost />);
+    await waitForBootSettled();
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(useProjectStore.getState().metadata.title).toBe(SAVED_TITLE);
   });
 });
