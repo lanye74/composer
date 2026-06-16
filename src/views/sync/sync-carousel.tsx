@@ -1,8 +1,27 @@
 import type { WordTiming } from "@/domain/word/timing";
+import { useThemeStore } from "@/stores/theme";
 import { syncCarouselTransition } from "@/utils/animationVariants";
 import { stripSplitCharacter } from "@/utils/split-character";
 import { splitIntoWords } from "@/utils/sync-helpers";
+import { readToken } from "@/utils/theme/read-token";
 import { AnimatePresence, m } from "motion/react";
+import { useMemo } from "react";
+
+// -- Hooks --------------------------------------------------------------------
+
+function useCarouselColors(): { accentColor: string; secondaryColor: string; disabledColor: string } {
+  const activeThemeId = useThemeStore((s) => s.activeThemeId);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: activeThemeId re-reads the DOM-resolved colors when the theme changes
+  return useMemo(
+    () => ({
+      accentColor: readToken("accent"),
+      secondaryColor: readToken("text-secondary"),
+      disabledColor: readToken("text-disabled"),
+    }),
+    // react-doctor-disable-next-line react-doctor/exhaustive-deps -- activeThemeId is the intended cache key: readToken reads DOM CSS vars non-reactively, so the memo must recompute when the theme changes
+    [activeThemeId],
+  );
+}
 
 // -- Constants ----------------------------------------------------------------
 
@@ -64,6 +83,7 @@ const WordGranularityLine: React.FC<WordGranularityLineProps> = ({
   rippleTarget,
   onRippleComplete,
 }) => {
+  const { accentColor, secondaryColor, disabledColor } = useCarouselColors();
   const lineWords = splitIntoWords(line.text);
   return lineWords.map((word, widx) => {
     const isPrevLine = idx === lineIndex - 1;
@@ -73,13 +93,7 @@ const WordGranularityLine: React.FC<WordGranularityLineProps> = ({
     const isLastWordOfPrevLine = !holdActive && isPrevLine && wordIndex === 0 && widx === lineWords.length - 1;
     const isLastSynced = isLastSyncedOnCurrent || isLastWordOfPrevLine;
 
-    const color = isCurrentHeld
-      ? "rgb(129, 140, 248)"
-      : isLastSynced
-        ? "rgb(129, 140, 248)"
-        : isCurrent
-          ? "rgba(255, 255, 255, 0.7)"
-          : "rgba(255, 255, 255, 0.4)";
+    const color = isCurrentHeld ? accentColor : isLastSynced ? accentColor : isCurrent ? secondaryColor : disabledColor;
 
     const hasRipple = rippleTarget !== null && rippleTarget.lineId === line.id && rippleTarget.wordIndex === widx;
 
@@ -108,6 +122,8 @@ const SyncCarousel: React.FC<SyncCarouselProps> = ({
   rippleTarget = null,
   onRippleComplete,
 }) => {
+  const { accentColor, secondaryColor, disabledColor } = useCarouselColors();
+
   const containerHeight = LINE_HEIGHT * 3;
   const translateY = LINE_HEIGHT - lineIndex * LINE_HEIGHT;
 
@@ -140,12 +156,7 @@ const SyncCarousel: React.FC<SyncCarouselProps> = ({
                 {granularity === "line" ? (
                   <m.span
                     animate={{
-                      color:
-                        idx === lineIndex - 1
-                          ? "rgb(129, 140, 248)"
-                          : isCurrent
-                            ? "rgba(255, 255, 255, 0.7)"
-                            : "rgba(255, 255, 255, 0.4)",
+                      color: idx === lineIndex - 1 ? accentColor : isCurrent ? secondaryColor : disabledColor,
                     }}
                     transition={syncCarouselTransition}
                   >

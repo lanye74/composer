@@ -1,8 +1,10 @@
 import { useAudioStore } from "@/stores/audio";
 import { useSettingsStore } from "@/stores/settings";
+import { useThemeStore } from "@/stores/theme";
 import { cn } from "@/utils/cn";
+import { readToken } from "@/utils/theme/read-token";
 import { snapTimeToOnset } from "@/views/timeline/snap-marker-math";
-import { useTimelineStore, WAVEFORM_HEIGHT } from "@/views/timeline/timeline-store";
+import { WAVEFORM_HEIGHT, useTimelineStore } from "@/views/timeline/timeline-store";
 import WavesurferPlayer from "@wavesurfer/react";
 import { useCallback, useEffect, useState } from "react";
 import type WaveSurfer from "wavesurfer.js";
@@ -16,12 +18,24 @@ const TimelineWaveform: React.FC = () => {
   const seekTo = useAudioStore((s) => s.seekTo);
 
   const zoom = useTimelineStore((s) => s.zoom);
+  const activeThemeId = useThemeStore((s) => s.activeThemeId);
   const markerMode = useTimelineStore((s) => s.markerMode);
 
   const [ws, setWs] = useState<WaveSurfer | null>(null);
 
   const totalWidth = duration > 0 ? duration * zoom : 0;
   const waveformKey = audioElement?.src ?? "no-audio";
+
+  const [initialColors] = useState(() => ({
+    wave: readToken("wave"),
+    progress: readToken("wave-progress"),
+  }));
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: activeThemeId re-applies DOM-resolved colors on theme change without remounting WaveSurfer
+  useEffect(() => {
+    if (!ws) return;
+    ws.setOptions({ waveColor: readToken("wave"), progressColor: readToken("wave-progress") });
+  }, [ws, activeThemeId]);
 
   useEffect(() => {
     if (!ws || !audioElement) return;
@@ -108,8 +122,8 @@ const TimelineWaveform: React.FC = () => {
           <WavesurferPlayer
             key={waveformKey}
             height={WAVEFORM_HEIGHT}
-            waveColor="#737476"
-            progressColor="#818cf8"
+            waveColor={initialColors.wave}
+            progressColor={initialColors.progress}
             cursorColor="transparent"
             barWidth={2}
             barGap={1}
