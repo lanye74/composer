@@ -447,7 +447,9 @@ describe("instanceBounds (legacy call site coverage)", () => {
     expect(instanceBounds(lines)).toEqual({ begin: 5, end: 7 });
   });
 
-  it("ignores stale line.begin/end when only bg words are present", () => {
+  // A line with begin/end and no main words is line-synced main, not stale
+  // timing, so its bounds count alongside the background (union of both voices).
+  it("counts line-synced main bounds alongside background words", () => {
     const lines: LyricLine[] = [
       {
         id: "a",
@@ -458,7 +460,7 @@ describe("instanceBounds (legacy call site coverage)", () => {
         backgroundWords: [{ text: "ah", begin: 5, end: 6 }],
       },
     ];
-    expect(instanceBounds(lines)).toEqual({ begin: 5, end: 6 });
+    expect(instanceBounds(lines)).toEqual({ begin: 5, end: 20 });
   });
 
   it("falls back to line.begin/end ONLY when the line is truly line-synced (no words and no bg words)", () => {
