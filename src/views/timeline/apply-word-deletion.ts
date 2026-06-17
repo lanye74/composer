@@ -1,8 +1,10 @@
 import { isLinked } from "@/domain/instance/predicates";
 import { CLEARED_BACKGROUND, manualBackgroundWordEdit } from "@/domain/line/background";
+import { mainBounds } from "@/domain/line/bounds";
 import { isLineSynced } from "@/domain/line/predicates";
 import { reconstructLineText } from "@/domain/line/reconstruct-text";
 import { reconcileLine, type LyricLine } from "@/domain/line/model";
+import { bgWords, lineText, mainWords } from "@/domain/line/voices";
 import { getSplitCharacter } from "@/utils/split-character";
 import { absorbDeletedSyllablesIntoNeighbors } from "@/domain/word/syllable-groups";
 
@@ -14,10 +16,9 @@ interface DeletionSelection {
 
 function isLineFullyEmpty(line: LyricLine): boolean {
   return (
-    (line.words?.length ?? 0) === 0 &&
-    (line.backgroundWords?.length ?? 0) === 0 &&
-    line.begin === undefined &&
-    line.end === undefined
+    (mainWords(line)?.length ?? 0) === 0 &&
+    (bgWords(line)?.length ?? 0) === 0 &&
+    mainBounds(line) === null
   );
 }
 
@@ -46,24 +47,26 @@ function applyWordDeletion(lines: LyricLine[], selectedWords: ReadonlyArray<Dele
     const line = linesById.get(lineId);
     if (!line) continue;
 
-    const realMainCount = line.words?.length ?? 0;
+    const mainWordsArr = mainWords(line);
+    const realMainCount = mainWordsArr?.length ?? 0;
     const lineSynced = isLineSynced(line);
 
-    let nextMain = line.words;
+    let nextMain = mainWordsArr;
     let willHaveNoMainWords = realMainCount === 0;
     if (lineSynced && mainIdxs.has(0)) {
       nextMain = undefined;
       willHaveNoMainWords = true;
-    } else if (realMainCount > 0 && mainIdxs.size > 0 && line.words) {
-      const absorbed = absorbDeletedSyllablesIntoNeighbors(line.words, mainIdxs);
+    } else if (realMainCount > 0 && mainIdxs.size > 0 && mainWordsArr) {
+      const absorbed = absorbDeletedSyllablesIntoNeighbors(mainWordsArr, mainIdxs);
       nextMain = absorbed.filter((_, i) => !mainIdxs.has(i));
       willHaveNoMainWords = nextMain.length === 0;
     }
 
-    const bgEdited = (line.backgroundWords?.length ?? 0) > 0 && bgIdxs.size > 0 && line.backgroundWords !== undefined;
+    const bgWordsArr = bgWords(line);
+    const bgEdited = (bgWordsArr?.length ?? 0) > 0 && bgIdxs.size > 0 && bgWordsArr !== undefined;
     let bgFields: Partial<LyricLine> = {};
-    if (bgEdited && line.backgroundWords) {
-      const absorbed = absorbDeletedSyllablesIntoNeighbors(line.backgroundWords, bgIdxs);
+    if (bgEdited && bgWordsArr) {
+      const absorbed = absorbDeletedSyllablesIntoNeighbors(bgWordsArr, bgIdxs);
       const remaining = absorbed.filter((_, i) => !bgIdxs.has(i));
       bgFields = remaining.length > 0 ? manualBackgroundWordEdit(remaining) : CLEARED_BACKGROUND;
     }
@@ -71,7 +74,7 @@ function applyWordDeletion(lines: LyricLine[], selectedWords: ReadonlyArray<Dele
     const updatedLine = reconcileLine({
       ...line,
       words: nextMain,
-      text: nextMain && nextMain.length > 0 ? reconstructLineText(nextMain, splitChar) : line.text,
+      text: nextMain && nextMain.length > 0 ? reconstructLineText(nextMain, splitChar) : lineText(line),
       ...bgFields,
       ...(willHaveNoMainWords ? { begin: undefined, end: undefined } : {}),
     });

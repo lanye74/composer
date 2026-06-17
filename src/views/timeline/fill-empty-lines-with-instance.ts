@@ -1,5 +1,6 @@
 import type { LineTemplate, LinkGroup } from "@/domain/group/template";
 import { reconcileLine, type LyricLine } from "@/domain/line/model";
+import { mainWords } from "@/domain/line/voices";
 
 interface FillResult {
   ok: boolean;
@@ -18,7 +19,8 @@ interface FillInput {
 }
 
 function isEmptyFillable(line: LyricLine): boolean {
-  return line.groupId === undefined && (!line.words || line.words.length === 0);
+  const words = mainWords(line);
+  return line.groupId === undefined && (!words || words.length === 0);
 }
 
 function fillEmptyLinesWithInstance(input: FillInput): FillResult {

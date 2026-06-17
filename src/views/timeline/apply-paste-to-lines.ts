@@ -1,6 +1,7 @@
 import { manualBackgroundWordEdit } from "@/domain/line/background";
 import { mainWordEditFields } from "@/domain/line/main-words";
 import type { LyricLine } from "@/domain/line/model";
+import { bgWords, mainWords } from "@/domain/line/voices";
 import { mergeWordsIntoTrack } from "@/domain/word/merge-track";
 import type { WordTiming } from "@/domain/word/timing";
 import type { ClipboardData, ClipboardEntry } from "@/views/timeline/selection-types";
@@ -55,10 +56,10 @@ function applyPasteToLines({
 
     const lineUpdates: Partial<LyricLine> = {};
     if (newWords.length > 0) {
-      Object.assign(lineUpdates, mainWordEditFields(mergeWordsIntoTrack(line.words ?? [], newWords)));
+      Object.assign(lineUpdates, mainWordEditFields(mergeWordsIntoTrack(mainWords(line) ?? [], newWords)));
     }
     if (newBgWords.length > 0) {
-      Object.assign(lineUpdates, manualBackgroundWordEdit(mergeWordsIntoTrack(line.backgroundWords ?? [], newBgWords)));
+      Object.assign(lineUpdates, manualBackgroundWordEdit(mergeWordsIntoTrack(bgWords(line) ?? [], newBgWords)));
     }
 
     updates.push({ id: line.id, updates: lineUpdates });
