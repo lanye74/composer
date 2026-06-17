@@ -3,6 +3,7 @@ import { CLEARED_BACKGROUND, manualBackgroundWordEdit } from "@/domain/line/back
 import { applyMainWordEdit } from "@/domain/line/main-words";
 import { type LyricLine, reconcileLine } from "@/domain/line/model";
 import { isLineSynced } from "@/domain/line/predicates";
+import { bgWords, mainWords } from "@/domain/line/voices";
 import { mergeWordsIntoTrack } from "@/domain/word/merge-track";
 import { boundsOverlap } from "@/domain/word/overlap";
 import type { WordTiming } from "@/domain/word/timing";
@@ -48,7 +49,7 @@ function validateMoves(moves: WordMove[], linesById: Map<string, LyricLine>): Mo
     if (move.targetTrack === "word" && isLineSynced(target) && target.id !== source.id) {
       return { ok: false, reject: "line-synced-target" };
     }
-    const targetArr = move.targetTrack === "word" ? target.words : target.backgroundWords;
+    const targetArr = move.targetTrack === "word" ? mainWords(target) : bgWords(target);
     if (targetArr) {
       for (const existing of targetArr) {
         if (boundsOverlap(move.word, existing)) return { ok: false, reject: "overlap" };
@@ -102,12 +103,14 @@ function planInserts(moves: WordMove[]): Map<string, TargetInserts> {
 
 function applyRemovals(line: LyricLine, removals: SourceRemovals): LyricLine {
   let updated = line;
-  if (removals.word.size > 0 && updated.words) {
-    const remaining = trimTrailingSpaceFromLast(updated.words.filter((_, i) => !removals.word.has(i)));
+  const main = mainWords(updated);
+  if (removals.word.size > 0 && main) {
+    const remaining = trimTrailingSpaceFromLast(main.filter((_, i) => !removals.word.has(i)));
     updated = applyMainWordEdit(updated, remaining);
   }
-  if (removals.bg.size > 0 && updated.backgroundWords) {
-    const remaining = trimTrailingSpaceFromLast(updated.backgroundWords.filter((_, i) => !removals.bg.has(i)));
+  const bg = bgWords(updated);
+  if (removals.bg.size > 0 && bg) {
+    const remaining = trimTrailingSpaceFromLast(bg.filter((_, i) => !removals.bg.has(i)));
     updated =
       remaining.length > 0
         ? reconcileLine({ ...updated, ...manualBackgroundWordEdit(remaining) })
@@ -119,11 +122,11 @@ function applyRemovals(line: LyricLine, removals: SourceRemovals): LyricLine {
 function applyInserts(line: LyricLine, inserts: TargetInserts, duration: number): LyricLine {
   let updated = line;
   if (inserts.word.length > 0) {
-    const merged = resolveOverlapsForward(mergeWordsIntoTrack(updated.words ?? [], inserts.word), duration);
+    const merged = resolveOverlapsForward(mergeWordsIntoTrack(mainWords(updated) ?? [], inserts.word), duration);
     updated = applyMainWordEdit(updated, merged);
   }
   if (inserts.bg.length > 0) {
-    const merged = resolveOverlapsForward(mergeWordsIntoTrack(updated.backgroundWords ?? [], inserts.bg), duration);
+    const merged = resolveOverlapsForward(mergeWordsIntoTrack(bgWords(updated) ?? [], inserts.bg), duration);
     updated = reconcileLine({ ...updated, ...manualBackgroundWordEdit(merged) });
   }
   return updated;
