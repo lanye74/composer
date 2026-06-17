@@ -1,6 +1,7 @@
 import { createRef } from "react";
 import { describe, expect, it } from "vitest";
 import { renderHook } from "vitest-browser-react";
+import { bgSource, bgWords, mainWords } from "@/domain/line/voices";
 import { createLine, snapPoints } from "@/test/factories";
 import { useAudioStore } from "@/stores/audio";
 import { useProjectStore } from "@/stores/project";
@@ -119,7 +120,7 @@ describe("useTimelineKeyboard", () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "m", bubbles: true }));
 
     const mergedLine = useProjectStore.getState().lines[0];
-    expect(mergedLine.words).toEqual([{ text: "everyday", begin: 1, end: 2 }]);
+    expect(mainWords(mergedLine)).toEqual([{ text: "everyday", begin: 1, end: 2 }]);
   });
 });
 
@@ -330,7 +331,7 @@ describe("useTimelineKeyboard · delete hovered snap point", () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete", bubbles: true }));
 
     expect(useProjectStore.getState().customSnapPoints.map((p) => p.time)).toEqual([12]);
-    expect(useProjectStore.getState().lines[0].words).toHaveLength(2);
+    expect(mainWords(useProjectStore.getState().lines[0])).toHaveLength(2);
     expect(useTimelineStore.getState().selectedWords).toHaveLength(1);
   });
 
@@ -377,8 +378,8 @@ describe("useTimelineKeyboard · background provenance", () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "[", bubbles: true }));
 
     const updated = useProjectStore.getState().lines[0];
-    expect(updated.backgroundTextSource).toBe("manual");
-    expect(updated.backgroundWords?.[0].begin).toBeCloseTo(1.2);
+    expect(bgSource(updated)).toBe("manual");
+    expect(bgWords(updated)?.[0].begin).toBeCloseTo(1.2);
   });
 
   it("stamps backgroundTextSource manual when bg words are merged", async () => {
@@ -405,8 +406,8 @@ describe("useTimelineKeyboard · background provenance", () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "m", bubbles: true }));
 
     const updated = useProjectStore.getState().lines[0];
-    expect(updated.backgroundWords).toEqual([{ text: "oohaah", begin: 1, end: 2 }]);
-    expect(updated.backgroundTextSource).toBe("manual");
+    expect(bgWords(updated)).toEqual([{ text: "oohaah", begin: 1, end: 2 }]);
+    expect(bgSource(updated)).toBe("manual");
   });
 
   it("leaves background provenance untouched when a main word's timing is set", async () => {
@@ -427,6 +428,6 @@ describe("useTimelineKeyboard · background provenance", () => {
 
     window.dispatchEvent(new KeyboardEvent("keydown", { key: "[", bubbles: true }));
 
-    expect(useProjectStore.getState().lines[0].backgroundTextSource).toBe("extraction");
+    expect(bgSource(useProjectStore.getState().lines[0])).toBe("extraction");
   });
 });

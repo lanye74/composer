@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { bgSource, bgText, bgWords, mainWords } from "@/domain/line/voices";
 import { TimelineContextMenu } from "@/views/timeline/timeline-context-menu";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import { useAudioStore } from "@/stores/audio";
@@ -61,7 +62,7 @@ describe("TimelineContextMenu", () => {
     );
     expect(explicitButton).toBeDefined();
     explicitButton?.click();
-    const updated = useProjectStore.getState().lines[0].words?.[0];
+    const updated = mainWords(useProjectStore.getState().lines[0])?.[0];
     expect(updated?.explicit).toBe(true);
   });
 
@@ -90,7 +91,7 @@ describe("TimelineContextMenu", () => {
     expect(mergeBtn).toBeDefined();
     mergeBtn?.click();
 
-    const words = useProjectStore.getState().lines[0].words ?? [];
+    const words = mainWords(useProjectStore.getState().lines[0]) ?? [];
     expect(words).toHaveLength(1);
     expect(words[0].text).toBe("every");
     expect(words[0].begin).toBe(0);
@@ -164,7 +165,7 @@ describe("TimelineContextMenu", () => {
     expect(snapBtn).toBeDefined();
     snapBtn?.click();
 
-    const words = useProjectStore.getState().lines[0].words ?? [];
+    const words = mainWords(useProjectStore.getState().lines[0]) ?? [];
     expect(words[0].end).toBe(words[1].begin);
     expect(words[1].end).toBe(words[2].begin);
     expect(words[0].begin).toBe(0);
@@ -202,8 +203,8 @@ describe("TimelineContextMenu background provenance", () => {
     findButton(/Delete word/i)?.click();
 
     const updated = useProjectStore.getState().lines[0];
-    expect(updated.backgroundWords?.map((w) => w.text)).toEqual(["aah"]);
-    expect(updated.backgroundTextSource).toBe("manual");
+    expect(bgWords(updated)?.map((w) => w.text)).toEqual(["aah"]);
+    expect(bgSource(updated)).toBe("manual");
   });
 
   it("clears all three background fields when the last bg word is deleted", async () => {
@@ -229,9 +230,9 @@ describe("TimelineContextMenu background provenance", () => {
     findButton(/Delete word/i)?.click();
 
     const updated = useProjectStore.getState().lines[0];
-    expect(updated.backgroundWords).toBeUndefined();
-    expect(updated.backgroundText).toBeUndefined();
-    expect(updated.backgroundTextSource).toBeUndefined();
+    expect(bgWords(updated)).toBeUndefined();
+    expect(bgText(updated)).toBeUndefined();
+    expect(bgSource(updated)).toBeUndefined();
   });
 
   it("stamps backgroundTextSource manual when a bg word is added via 'Add word here'", async () => {
@@ -249,8 +250,8 @@ describe("TimelineContextMenu background provenance", () => {
     findButton(/Add word here/i)?.click();
 
     const updated = useProjectStore.getState().lines[0];
-    expect(updated.backgroundWords?.length).toBe(3);
-    expect(updated.backgroundTextSource).toBe("manual");
+    expect(bgWords(updated)?.length).toBe(3);
+    expect(bgSource(updated)).toBe("manual");
   });
 
   it("stamps backgroundTextSource manual when bg words are merged", async () => {
@@ -271,8 +272,8 @@ describe("TimelineContextMenu background provenance", () => {
     findButton(/Merge words/i)?.click();
 
     const updated = useProjectStore.getState().lines[0];
-    expect(updated.backgroundWords).toHaveLength(1);
-    expect(updated.backgroundTextSource).toBe("manual");
+    expect(bgWords(updated)).toHaveLength(1);
+    expect(bgSource(updated)).toBe("manual");
   });
 
   it("leaves background provenance untouched when a main word is deleted", async () => {
@@ -297,6 +298,6 @@ describe("TimelineContextMenu background provenance", () => {
 
     findButton(/Delete word/i)?.click();
 
-    expect(useProjectStore.getState().lines[0].backgroundTextSource).toBe("extraction");
+    expect(bgSource(useProjectStore.getState().lines[0])).toBe("extraction");
   });
 });
