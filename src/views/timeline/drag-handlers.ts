@@ -2,6 +2,7 @@ import { isWordSelected } from "@/domain/selection/identity";
 import { manualBackgroundWordEdit } from "@/domain/line/background";
 import { mainWordEditFields } from "@/domain/line/main-words";
 import type { LyricLine } from "@/domain/line/model";
+import { bgWords, mainWords } from "@/domain/line/voices";
 import { useProjectStore } from "@/stores/project";
 import { mergeWordsIntoTrack } from "@/domain/word/merge-track";
 import { applyWordMoveAcrossLines, type WordMove } from "@/domain/word/move-across-lines";
@@ -60,7 +61,7 @@ function expandSelectionsAcrossLines(lines: LyricLine[], selections: WordSelecti
   for (const sel of selections) {
     const line = linesById.get(sel.lineId);
     if (!line) continue;
-    const words = sel.type === "word" ? line.words : line.backgroundWords;
+    const words = sel.type === "word" ? mainWords(line) : bgWords(line);
     if (!words) continue;
     const expanded = expandSelectionToGroupmates(words, [sel.wordIndex]);
     for (const idx of expanded) {
@@ -109,7 +110,7 @@ function handleAltDuplicate(event: DragEndEvent, lines: LyricLine[], zoom: numbe
     const bgDups: WordTiming[] = [];
 
     for (const sel of selections) {
-      const wordsArray = sel.type === "word" ? line.words : line.backgroundWords;
+      const wordsArray = sel.type === "word" ? mainWords(line) : bgWords(line);
       const word = wordsArray?.[sel.wordIndex];
       if (!word) continue;
 
@@ -125,13 +126,13 @@ function handleAltDuplicate(event: DragEndEvent, lines: LyricLine[], zoom: numbe
     const lineUpdates: Partial<LyricLine> = {};
 
     if (wordDups.length > 0) {
-      const existing = line.words ?? [];
+      const existing = mainWords(line) ?? [];
       const hasOverlap = wordDups.some((dup) => existing.some((w) => boundsOverlap(dup, w)));
       if (!hasOverlap) Object.assign(lineUpdates, mainWordEditFields(mergeWordsIntoTrack(existing, wordDups)));
     }
 
     if (bgDups.length > 0) {
-      const existing = line.backgroundWords ?? [];
+      const existing = bgWords(line) ?? [];
       const hasOverlap = bgDups.some((dup) => existing.some((w) => boundsOverlap(dup, w)));
       if (!hasOverlap) Object.assign(lineUpdates, manualBackgroundWordEdit(mergeWordsIntoTrack(existing, bgDups)));
     }
@@ -170,11 +171,13 @@ function applySameLineReorder(
       const wordIndices = new Set(selections.flatMap((s) => (s.type === "word" ? [s.wordIndex] : [])));
       const bgIndices = new Set(selections.flatMap((s) => (s.type === "bg" ? [s.wordIndex] : [])));
 
-      if (wordIndices.size > 0 && line.words) {
-        Object.assign(lineUpdates, mainWordEditFields(reorderWordTrack(line.words, wordIndices, timeDelta, duration)));
+      const main = mainWords(line);
+      const bg = bgWords(line);
+      if (wordIndices.size > 0 && main) {
+        Object.assign(lineUpdates, mainWordEditFields(reorderWordTrack(main, wordIndices, timeDelta, duration)));
       }
-      if (bgIndices.size > 0 && line.backgroundWords) {
-        const reordered = reorderWordTrack(line.backgroundWords, bgIndices, timeDelta, duration);
+      if (bgIndices.size > 0 && bg) {
+        const reordered = reorderWordTrack(bg, bgIndices, timeDelta, duration);
         Object.assign(lineUpdates, manualBackgroundWordEdit(reordered));
       }
 
@@ -189,7 +192,7 @@ function applySameLineReorder(
 
   const line = lines.find((l) => l.id === activeData.lineId);
   if (!line) return;
-  const wordsArray = activeData.trackType === "word" ? line.words : line.backgroundWords;
+  const wordsArray = activeData.trackType === "word" ? mainWords(line) : bgWords(line);
   if (!wordsArray) return;
 
   const wordIndex = activeData.wordIndex;
@@ -232,7 +235,7 @@ function buildCrossLineMoves({
     if (sel.lineId !== activeData.lineId) continue;
     const sourceLine = linesById.get(sel.lineId);
     if (!sourceLine) continue;
-    const sourceArr = sel.type === "word" ? sourceLine.words : sourceLine.backgroundWords;
+    const sourceArr = sel.type === "word" ? mainWords(sourceLine) : bgWords(sourceLine);
     const source = sourceArr?.[sel.wordIndex];
     if (!source) continue;
 

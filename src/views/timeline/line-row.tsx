@@ -3,6 +3,7 @@ import { useProjectStore } from "@/stores/project";
 import { getAgentColor } from "@/domain/agent/colors";
 import { backgroundFields } from "@/domain/line/background";
 import type { LyricLine } from "@/domain/line/model";
+import { bgText, bgWords, lineText, mainWords } from "@/domain/line/voices";
 import type { WordTiming } from "@/domain/word/timing";
 import { useSettingsStore } from "@/stores/settings";
 import { cn } from "@/utils/cn";
@@ -76,9 +77,12 @@ const LineRow: React.FC<LineRowProps> = ({ line, lineIndex, duration, onUpdateWo
   const color = getAgentColor(line.agentId);
   const groups = useProjectStore((s) => s.groups);
   const groupColor = line.groupId ? groups.find((g) => g.id === line.groupId)?.color : undefined;
-  const displayText = stripSplitCharacter(line.text);
-  const hasBgWords = line.backgroundWords && line.backgroundWords.length > 0;
-  const hasMainWords = line.words && line.words.length > 0;
+  const main = mainWords(line);
+  const bg = bgWords(line);
+  const bgTextValue = bgText(line);
+  const displayText = stripSplitCharacter(lineText(line));
+  const hasBgWords = bg && bg.length > 0;
+  const hasMainWords = main && main.length > 0;
 
   const rowHeight = useTimelineStore((s) => s.rowHeights[line.id] ?? s.defaultRowHeight);
   const defaultRowHeight = useTimelineStore((s) => s.defaultRowHeight);
@@ -180,7 +184,7 @@ const LineRow: React.FC<LineRowProps> = ({ line, lineIndex, duration, onUpdateWo
             <WordTrack
               lineId={line.id}
               lineIndex={lineIndex}
-              words={line.words!}
+              words={main!}
               color={color}
               trackType="word"
               duration={duration}
@@ -231,7 +235,7 @@ const LineRow: React.FC<LineRowProps> = ({ line, lineIndex, duration, onUpdateWo
                   {displayText.length > 60 ? "..." : ""}
                 </span>
                 {displayText.length > 0 && (
-                  <SyncLineButton lineId={line.id} wordCount={splitIntoWordsWithMeta(line.text).parts.length} />
+                  <SyncLineButton lineId={line.id} wordCount={splitIntoWordsWithMeta(lineText(line)).parts.length} />
                 )}
               </div>
             </div>
@@ -250,7 +254,7 @@ const LineRow: React.FC<LineRowProps> = ({ line, lineIndex, duration, onUpdateWo
             <WordTrack
               lineId={line.id}
               lineIndex={lineIndex}
-              words={line.backgroundWords!}
+              words={bg!}
               color={color}
               trackType="bg"
               duration={duration}
@@ -297,8 +301,8 @@ const LineRow: React.FC<LineRowProps> = ({ line, lineIndex, duration, onUpdateWo
               });
             }}
           >
-            {line.backgroundText
-              ? `${line.backgroundText.slice(0, 40)}${line.backgroundText.length > 40 ? "..." : ""}`
+            {bgTextValue
+              ? `${bgTextValue.slice(0, 40)}${bgTextValue.length > 40 ? "..." : ""}`
               : "BG"}
           </div>
         )}
