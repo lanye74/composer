@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { LineRow } from "@/views/timeline/line-row";
+import { mainBounds } from "@/domain/line/bounds";
+import { bgSource, bgWords } from "@/domain/line/voices";
 import { useAudioStore } from "@/stores/audio";
 import { useProjectStore } from "@/stores/project";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
@@ -41,8 +43,8 @@ describe("LineRow", () => {
     expect(placeButton).toBeDefined();
     placeButton?.click();
     const updated = useProjectStore.getState().lines.find((l) => l.id === line.id);
-    expect(updated?.begin).toBeCloseTo(5, 5);
-    expect((updated?.end ?? 0) > 5).toBe(true);
+    expect(updated && mainBounds(updated)?.begin).toBeCloseTo(5, 5);
+    expect(((updated && mainBounds(updated)?.end) ?? 0) > 5).toBe(true);
   });
 
   it("does not show the Place button for a line that already has words", async () => {
@@ -127,7 +129,7 @@ describe("LineRow", () => {
     expect(dropZone).toBeDefined();
     dropZone?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, clientX: 100 }));
 
-    await expect.poll(() => useProjectStore.getState().lines[0].backgroundWords?.length).toBe(1);
-    expect(useProjectStore.getState().lines[0].backgroundTextSource).toBe("manual");
+    await expect.poll(() => bgWords(useProjectStore.getState().lines[0])?.length).toBe(1);
+    expect(bgSource(useProjectStore.getState().lines[0])).toBe("manual");
   });
 });
