@@ -1,21 +1,23 @@
 /**
  * @vitest-environment node
  */
-import type { LyricLine } from "@/domain/line/model";
+import { reconcileLine, type LyricLine } from "@/domain/line/model";
 import { getEffectiveLines } from "@/domain/line/effective-words";
+import { mainWords } from "@/domain/line/voices";
+import { isLineSynced } from "@/domain/line/predicates";
 import { useProjectStore } from "@/stores/project";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import { beforeEach, describe, expect, it } from "vitest";
 import { computeSplitIntoWordsUpdates, computeSplitSelections, splitLinesIntoWords } from "./split-lines-into-words";
 
-const lineSynced: LyricLine = { id: "L1", text: "one two three", agentId: "v1", begin: 1, end: 4 };
-const wordSynced: LyricLine = {
+const lineSynced: LyricLine = reconcileLine({ id: "L1", text: "one two three", agentId: "v1", begin: 1, end: 4 });
+const wordSynced: LyricLine = reconcileLine({
   id: "L2",
   text: "already words",
   agentId: "v1",
   words: [{ text: "already words", begin: 5, end: 6 }],
-};
-const anotherSynced: LyricLine = { id: "L3", text: "four five", agentId: "v1", begin: 7, end: 9 };
+});
+const anotherSynced: LyricLine = reconcileLine({ id: "L3", text: "four five", agentId: "v1", begin: 7, end: 9 });
 
 describe("computeSplitIntoWordsUpdates", () => {
   it("converts a line-synced line into a word update with begin/end cleared", () => {
@@ -72,10 +74,9 @@ describe("splitLinesIntoWords (store-mutating)", () => {
     splitLinesIntoWords(["L1"], effective);
 
     const after = useProjectStore.getState().lines[0];
-    expect(after.words?.length).toBeGreaterThan(0);
-    expect(after.begin).toBeUndefined();
-    expect(after.end).toBeUndefined();
-    expect(useTimelineStore.getState().selectedWords.length).toBe(after.words?.length);
+    expect(mainWords(after)?.length).toBeGreaterThan(0);
+    expect(isLineSynced(after)).toBe(false);
+    expect(useTimelineStore.getState().selectedWords.length).toBe(mainWords(after)?.length);
   });
 
   it("converts multiple line-synced rows in one history step", () => {
@@ -85,8 +86,10 @@ describe("splitLinesIntoWords (store-mutating)", () => {
     splitLinesIntoWords(["L1", "L3"], effective);
 
     const after = useProjectStore.getState().lines;
-    expect(after.find((l) => l.id === "L1")?.words?.length).toBeGreaterThan(0);
-    expect(after.find((l) => l.id === "L3")?.words?.length).toBeGreaterThan(0);
+    const l1 = after.find((l) => l.id === "L1");
+    const l3 = after.find((l) => l.id === "L3");
+    expect(l1 && mainWords(l1)?.length).toBeGreaterThan(0);
+    expect(l3 && mainWords(l3)?.length).toBeGreaterThan(0);
   });
 
   it("leaves a word-synced row untouched and selects nothing", () => {
@@ -95,7 +98,7 @@ describe("splitLinesIntoWords (store-mutating)", () => {
 
     splitLinesIntoWords(["L2"], effective);
 
-    expect(useProjectStore.getState().lines[0].words).toEqual(wordSynced.words);
+    expect(mainWords(useProjectStore.getState().lines[0])).toEqual(mainWords(wordSynced));
     expect(useTimelineStore.getState().selectedWords).toHaveLength(0);
   });
 });
