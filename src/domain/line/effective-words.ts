@@ -1,16 +1,13 @@
 import type { LyricLine } from "@/domain/line/model";
 import type { WordTiming } from "@/domain/word/timing";
 import { isLineSynced } from "@/domain/line/predicates";
-import { stripSplitCharacter } from "@/utils/split-character";
+import { mainVoice } from "@/domain/line/voices";
+import { effectiveVoiceWords } from "@/domain/voice/effective-words";
 
 // -- Functions ----------------------------------------------------------------
 
 function effectiveWords(line: LyricLine): WordTiming[] {
-  if (line.words?.length) return line.words;
-  if (isLineSynced(line)) {
-    return [{ text: stripSplitCharacter(line.text), begin: line.begin, end: line.end }];
-  }
-  return [];
+  return effectiveVoiceWords(mainVoice(line));
 }
 
 function getEffectiveLines(lines: LyricLine[]): LyricLine[] {
