@@ -5,6 +5,8 @@ import type { ProjectMetadata } from "@/domain/project/metadata";
 import { formatTime } from "@/utils/format-time";
 import { stripSplitCharacter } from "@/utils/split-character";
 import { effectiveBounds } from "@/domain/line/bounds";
+import { isWordSynced } from "@/domain/line/predicates";
+import { bgText, bgWords, lineText, mainWords } from "@/domain/line/voices";
 
 // -- Helpers ------------------------------------------------------------------
 
@@ -33,7 +35,7 @@ function generateTTML({ metadata, agents, lines, groups, granularity, minify = f
   const nl = minify ? "" : "\n";
   const ind = (n: number) => (minify ? "" : "  ".repeat(n));
 
-  const effectiveGranularity = lines.some((l) => l.words?.length) ? "word" : "line";
+  const effectiveGranularity = lines.some((l) => isWordSynced(l)) ? "word" : "line";
 
   const parts: string[] = [];
 
@@ -84,32 +86,33 @@ function generateTTML({ metadata, agents, lines, groups, granularity, minify = f
       : "";
     let content = "";
 
-    if (granularity === "word" && line.words?.length) {
-      const words = line.words;
-      const wordCount = words.length;
+    const mainWordList = mainWords(line);
+    if (granularity === "word" && mainWordList?.length) {
+      const wordCount = mainWordList.length;
       for (let i = 0; i < wordCount; i++) {
-        const word = words[i];
+        const word = mainWordList[i];
         const text = word.text.trimEnd();
         const needsSpace = i < wordCount - 1 && word.text.endsWith(" ");
         content += `${emitWordSpan(word, text)}${needsSpace ? " " : ""}`;
       }
     } else {
-      content = escapeXml(stripSplitCharacter(line.text));
+      content = escapeXml(stripSplitCharacter(lineText(line)));
     }
 
-    if (line.backgroundText && line.backgroundWords?.length) {
-      const bgWords = line.backgroundWords;
-      const bgCount = bgWords.length;
+    const background = bgText(line);
+    const bgWordList = bgWords(line);
+    if (background && bgWordList?.length) {
+      const bgCount = bgWordList.length;
       let bgContent = "";
       for (let i = 0; i < bgCount; i++) {
-        const bgWord = bgWords[i];
+        const bgWord = bgWordList[i];
         const text = bgWord.text.trimEnd();
         const needsSpace = i < bgCount - 1 && bgWord.text.endsWith(" ");
         bgContent += `${emitWordSpan(bgWord, text)}${needsSpace ? " " : ""}`;
       }
       content += `<span ttm:role="x-bg">${bgContent}</span>`;
-    } else if (line.backgroundText) {
-      content += `<span ttm:role="x-bg"><span begin="${formatTime(timing.begin)}" end="${formatTime(timing.end)}">${escapeXml(line.backgroundText)}</span></span>`;
+    } else if (background) {
+      content += `<span ttm:role="x-bg"><span begin="${formatTime(timing.begin)}" end="${formatTime(timing.end)}">${escapeXml(background)}</span></span>`;
     }
 
     parts.push(

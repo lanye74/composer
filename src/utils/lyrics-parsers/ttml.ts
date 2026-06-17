@@ -1,6 +1,7 @@
 import type { Agent, AgentType } from "@/domain/agent/model";
 import type { LinkGroup } from "@/domain/group/template";
 import { reconcileLine, type LyricLine } from "@/domain/line/model";
+import { isLineSynced, isWordSynced } from "@/domain/line/predicates";
 import { reconstructLineText } from "@/domain/line/reconstruct-text";
 import type { ProjectMetadata } from "@/domain/project/metadata";
 import { inferSyllableGroupIds } from "@/domain/word/syllable-groups";
@@ -186,7 +187,7 @@ function parseTtml(content: string, _fallbackDuration?: number): ParseResult {
   return {
     lines,
     metadata,
-    hasTimingData: lines.some((l) => l.begin !== undefined || l.words?.length),
+    hasTimingData: lines.some((l) => isLineSynced(l) || isWordSynced(l)),
     agents: agents.length > 0 ? agents : undefined,
     groups: groups.length > 0 ? groups : undefined,
   };

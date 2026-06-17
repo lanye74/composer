@@ -1,4 +1,5 @@
 import type { LyricLine } from "@/domain/line/model";
+import { isLineSynced } from "@/domain/line/predicates";
 import { generateLineId, type ParseResult } from "@/utils/lyrics-parsers/shared";
 
 // -- Helpers ------------------------------------------------------------------
@@ -58,7 +59,7 @@ function parseSrt(content: string, _fallbackDuration?: number): ParseResult {
   return {
     lines,
     metadata: {},
-    hasTimingData: lines.some((l) => l.begin !== undefined),
+    hasTimingData: lines.some((l) => isLineSynced(l)),
   };
 }
 
