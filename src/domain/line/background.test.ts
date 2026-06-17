@@ -5,10 +5,14 @@ import {
   CLEARED_BACKGROUND,
   manualBackgroundWordEdit,
 } from "@/domain/line/background";
+import { mainBounds } from "@/domain/line/bounds";
+import { reconcileLine } from "@/domain/line/model";
 import type { LyricLine } from "@/domain/line/model";
+import { isLineSynced } from "@/domain/line/predicates";
+import { bgSource, bgText, bgWords, mainWords } from "@/domain/line/voices";
 import type { WordTiming } from "@/domain/word/timing";
 
-const line: LyricLine = { id: "a", text: "hello", agentId: "v1" };
+const line: LyricLine = reconcileLine({ id: "a", text: "hello", agentId: "v1" });
 
 const bgWord: WordTiming = { text: "ooh", begin: 1.2, end: 1.8 };
 
@@ -89,13 +93,13 @@ describe("CLEARED_BACKGROUND", () => {
 describe("applyBackground", () => {
   it("sets then clears a line's background coherently", () => {
     const withBg = applyBackground(line, { text: "ooh", source: "manual" });
-    expect(withBg.backgroundText).toBe("ooh");
-    expect(withBg.backgroundTextSource).toBe("manual");
+    expect(bgText(withBg)).toBe("ooh");
+    expect(bgSource(withBg)).toBe("manual");
 
     const cleared = applyBackground(withBg, { text: "", source: "manual" });
-    expect(cleared.backgroundText).toBeUndefined();
-    expect(cleared.backgroundWords).toBeUndefined();
-    expect(cleared.backgroundTextSource).toBeUndefined();
+    expect(bgText(cleared)).toBeUndefined();
+    expect(bgWords(cleared)).toBeUndefined();
+    expect(bgSource(cleared)).toBeUndefined();
   });
 });
 
@@ -108,7 +112,7 @@ describe("applyBackground immutability and field preservation", () => {
   });
 
   it("preserves unrelated fields on an untimed line", () => {
-    const source: LyricLine = {
+    const source: LyricLine = reconcileLine({
       id: "u1",
       text: "verse one",
       agentId: "v2",
@@ -116,7 +120,7 @@ describe("applyBackground immutability and field preservation", () => {
       instanceIdx: 0,
       templateLineIdx: 3,
       detached: true,
-    };
+    });
     const result = applyBackground(source, { text: "ooh", source: "extraction" });
     expect(result).toMatchObject({
       id: "u1",
@@ -130,7 +134,7 @@ describe("applyBackground immutability and field preservation", () => {
   });
 
   it("preserves the word-synced timing variant", () => {
-    const wordSynced: LyricLine = {
+    const wordSynced: LyricLine = reconcileLine({
       id: "w1",
       text: "hello world",
       agentId: "v1",
@@ -138,25 +142,24 @@ describe("applyBackground immutability and field preservation", () => {
         { text: "hello ", begin: 0, end: 0.5 },
         { text: "world", begin: 0.5, end: 1 },
       ],
-    };
+    });
     const result = applyBackground(wordSynced, { text: "ooh", source: "manual" });
-    expect(result.words).toEqual(wordSynced.words);
-    expect(result.begin).toBeUndefined();
-    expect(result.end).toBeUndefined();
+    expect(mainWords(result)).toEqual(mainWords(wordSynced));
+    expect(isLineSynced(result)).toBe(false);
   });
 
   it("preserves the line-synced timing variant", () => {
-    const lineSynced: LyricLine = {
+    const lineSynced: LyricLine = reconcileLine({
       id: "l1",
       text: "hello world",
       agentId: "v1",
       begin: 2.5,
       end: 6.75,
-    };
+    });
     const result = applyBackground(lineSynced, { text: "ooh", source: "extraction" });
-    expect(result.begin).toBe(2.5);
-    expect(result.end).toBe(6.75);
-    expect(result.words).toBeUndefined();
+    expect(mainBounds(result)?.begin).toBe(2.5);
+    expect(mainBounds(result)?.end).toBe(6.75);
+    expect(mainWords(result)).toBeUndefined();
   });
 });
 
@@ -164,24 +167,24 @@ describe("applyBackground overwriting", () => {
   it("flips an existing manual provenance to extraction", () => {
     const manual = applyBackground(line, { text: "ooh", source: "manual" });
     const overwritten = applyBackground(manual, { text: "aah", source: "extraction" });
-    expect(overwritten.backgroundText).toBe("aah");
-    expect(overwritten.backgroundTextSource).toBe("extraction");
+    expect(bgText(overwritten)).toBe("aah");
+    expect(bgSource(overwritten)).toBe("extraction");
   });
 
   it("flips an existing extraction provenance to manual", () => {
     const extracted = applyBackground(line, { text: "ooh", source: "extraction" });
     const overwritten = applyBackground(extracted, { text: "aah", source: "manual" });
-    expect(overwritten.backgroundText).toBe("aah");
-    expect(overwritten.backgroundTextSource).toBe("manual");
+    expect(bgText(overwritten)).toBe("aah");
+    expect(bgSource(overwritten)).toBe("manual");
   });
 
   it("clears backgroundWords when clearing a line that had words-based background", () => {
     const withWords = applyBackground(line, { words: [bgWord], source: "extraction" });
-    expect(withWords.backgroundWords).toEqual([bgWord]);
+    expect(bgWords(withWords)).toEqual([bgWord]);
     const cleared = applyBackground(withWords, { text: "", source: "manual" });
-    expect(cleared.backgroundWords).toBeUndefined();
-    expect(cleared.backgroundText).toBeUndefined();
-    expect(cleared.backgroundTextSource).toBeUndefined();
+    expect(bgWords(cleared)).toBeUndefined();
+    expect(bgText(cleared)).toBeUndefined();
+    expect(bgSource(cleared)).toBeUndefined();
   });
 });
 
