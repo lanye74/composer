@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
+import { bgBounds } from "@/domain/line/bounds";
 import { bgSource, bgText, bgWords, mainWords } from "@/domain/line/voices";
 import { useAudioStore } from "@/stores/audio";
 import { useProjectStore } from "@/stores/project";
@@ -56,6 +57,27 @@ describe("BackgroundTextEditor provenance", () => {
     await userEvent.keyboard("{Enter}");
 
     await expect.poll(() => bgText(useProjectStore.getState().lines[0])).toBe("ooh");
+    expect(bgSource(useProjectStore.getState().lines[0])).toBe("manual");
+  });
+
+  it("regression: line-synced line keeps line-synced background (#122)", async () => {
+    const line = createLine({
+      id: "l1",
+      text: "lead",
+      begin: 0,
+      end: 4,
+    });
+    useProjectStore.setState({ lines: [line] });
+    selectFirstWordOf("l1");
+    const screen = await render(<TimelineInfoPanel />);
+
+    await screen.getByRole("button", { name: "Add BG" }).click();
+    await screen.getByPlaceholder("Background vocals").fill("ooh");
+    await userEvent.keyboard("{Enter}");
+
+    await expect.poll(() => bgText(useProjectStore.getState().lines[0])).toBe("ooh");
+    expect(bgBounds(useProjectStore.getState().lines[0])).not.toBeNull();
+    expect(bgWords(useProjectStore.getState().lines[0])).toBeUndefined();
     expect(bgSource(useProjectStore.getState().lines[0])).toBe("manual");
   });
 

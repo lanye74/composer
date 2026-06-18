@@ -1,4 +1,5 @@
 import { getLinkScope, isLinkedSibling } from "@/domain/group/linking";
+import { propagateWordChanges } from "@/domain/group/smart-sync";
 import { applyBackground, CLEARED_BACKGROUND, manualBackgroundWordEdit, setBackground } from "@/domain/line/background";
 import { applyMainWordEdit } from "@/domain/line/main-words";
 import { type LyricLine, reconcileLine, toFlat } from "@/domain/line/model";
@@ -229,11 +230,12 @@ function applyMarkWordsExplicit(lines: LyricLine[], targets: ExplicitTarget[], v
 // -- Nested-aware background write --------------------------------------------
 
 // The single chokepoint for the nested full-line replace + linked-sibling
-// background re-resolution. Replaces the target with nextLine, then (when
-// propagating and linked) mirrors the shared linked content onto each sibling
-// and re-resolves the sibling's background from nextLine's shared bg text +
-// source against the SIBLING's own main, so each sibling gets instance-specific
-// granularity. Word-level bg timings are never copied across instances.
+// propagation. Replaces the target with nextLine, then (when propagating and
+// linked) for each sibling: propagates a main-word structural change via
+// smart-sync, mirrors the shared text + agentId, and re-resolves the sibling's
+// background from nextLine's shared bg text + source against the SIBLING's own
+// main. Each sibling gets instance-specific timing: word-level timings are never
+// copied across instances, only the shared content (text) and word structure.
 function commitNestedLineReplace(
   state: ProjectState,
   lineId: string,
@@ -243,6 +245,8 @@ function commitNestedLineReplace(
   const target = state.lines.find((l) => l.id === lineId);
   if (!target) return state;
   const linkScope = propagateToSiblings ? getLinkScope(target) : null;
+  const sourceWordsBefore = mainWords(target);
+  const sourceWordsAfter = mainWords(nextLine);
   const sharedText = bgText(nextLine);
   const sharedSource = bgSource(nextLine);
 
@@ -250,14 +254,21 @@ function commitNestedLineReplace(
     if (line.id === lineId) return nextLine;
     if (!isLinkedSibling(line, linkScope)) return line;
 
-    const siblingWithText =
-      lineText(line) === lineText(nextLine) && line.agentId === nextLine.agentId
-        ? line
-        : reconcileLine({ ...toFlat(line), text: lineText(nextLine), agentId: nextLine.agentId });
+    const propagatedWords = propagateWordChanges(sourceWordsAfter, sourceWordsBefore, mainWords(line));
+    const contentMatches =
+      propagatedWords === undefined && lineText(line) === lineText(nextLine) && line.agentId === nextLine.agentId;
+    const mirrored = contentMatches
+      ? line
+      : reconcileLine({
+          ...toFlat(line),
+          text: lineText(nextLine),
+          agentId: nextLine.agentId,
+          ...(propagatedWords !== undefined ? { words: propagatedWords } : {}),
+        });
 
     return sharedText === undefined
-      ? setBackground(siblingWithText, null)
-      : applyBackground(siblingWithText, { text: sharedText, source: sharedSource ?? "manual" });
+      ? setBackground(mirrored, null)
+      : applyBackground(mirrored, { text: sharedText, source: sharedSource ?? "manual" });
   });
 
   return commitHistory(state, { lines: newLines });

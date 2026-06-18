@@ -1,9 +1,11 @@
 /**
  * @vitest-environment node
  */
+import { applyBackground } from "@/domain/line/background";
+import { bgBounds } from "@/domain/line/bounds";
 import type { LinkGroup } from "@/domain/group/template";
 import { type LyricLine, reconcileLine } from "@/domain/line/model";
-import { lineText, mainWords } from "@/domain/line/voices";
+import { bgText, bgWords, lineText, mainWords } from "@/domain/line/voices";
 import { describe, expect, it } from "vitest";
 import { decideEditTextAction } from "./decide-edit-text-action";
 
@@ -202,5 +204,57 @@ describe("decideEditTextAction", () => {
       modalPending: false,
     });
     expect(action.kind).toBe("apply");
+  });
+});
+
+describe("#122 audit: editing main text never resurrects a word-split background", () => {
+  it("keeps a line-synced background line-synced when its main text is edited", () => {
+    const lineSynced = applyBackground(
+      reconcileLine({ id: "L1", text: "lead vocal", agentId: "v1", begin: 0, end: 4 }),
+      {
+        text: "ooh",
+        source: "manual",
+      },
+    );
+    expect(bgBounds(lineSynced)).not.toBeNull();
+    expect(bgWords(lineSynced)).toBeUndefined();
+
+    const action = decideEditTextAction({
+      text: "lead vocals",
+      defaultAgentId: "v1",
+      lines: [lineSynced],
+      groups: [],
+      modalPending: false,
+    });
+
+    expect(action.kind).toBe("apply");
+    if (action.kind !== "apply") return;
+    const edited = action.finalLines[0];
+    expect(bgText(edited)).toBe("ooh");
+    expect(bgWords(edited)).toBeUndefined();
+  });
+
+  it("does not auto-split an untimed background when the main text is edited", () => {
+    const untimedBg = reconcileLine({
+      id: "L1",
+      text: "lead vocal",
+      agentId: "v1",
+      begin: 0,
+      end: 4,
+      backgroundText: "ooh",
+      backgroundTextSource: "manual",
+    });
+    const action = decideEditTextAction({
+      text: "lead vocals",
+      defaultAgentId: "v1",
+      lines: [untimedBg],
+      groups: [],
+      modalPending: false,
+    });
+    expect(action.kind).toBe("apply");
+    if (action.kind !== "apply") return;
+    const edited = action.finalLines[0];
+    expect(bgText(edited)).toBe("ooh");
+    expect(bgWords(edited)).toBeUndefined();
   });
 });

@@ -5,7 +5,7 @@ import type { LinkGroup } from "@/domain/group/template";
 import { bgBounds, mainBounds } from "@/domain/line/bounds";
 import { type LooseLine, reconcileLine } from "@/domain/line/model";
 import { applyBackground } from "@/domain/line/background";
-import { bgVoice, bgWords } from "@/domain/line/voices";
+import { bgVoice, bgWords, lineText, mainWords } from "@/domain/line/voices";
 import { isLineSynced, isWordSynced } from "@/domain/voice/predicates";
 import { useProjectStore } from "@/stores/project";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -344,6 +344,61 @@ describe("project store · setLineWithHistory", () => {
     useProjectStore.getState().setLineWithHistory("L1", cleared);
 
     expect(bgVoice(getLine("L1"))).toBeNull();
+  });
+
+  it("propagates a main-word structural change to a linked word-synced sibling, keeping its own timing", () => {
+    seed(
+      [
+        {
+          id: "a0",
+          text: "Hi (ooh) there",
+          agentId: "v1",
+          groupId: "g1",
+          instanceIdx: 0,
+          templateLineIdx: 0,
+          words: [
+            { text: "Hi ", begin: 0, end: 1 },
+            { text: "(ooh) ", begin: 1, end: 2 },
+            { text: "there", begin: 2, end: 3 },
+          ],
+        },
+        {
+          id: "a1",
+          text: "Hi (ooh) there",
+          agentId: "v1",
+          groupId: "g1",
+          instanceIdx: 1,
+          templateLineIdx: 0,
+          words: [
+            { text: "Hi ", begin: 10, end: 11 },
+            { text: "(ooh) ", begin: 11, end: 12 },
+            { text: "there", begin: 12, end: 13 },
+          ],
+        },
+      ],
+      [seedGroup("g1")],
+    );
+
+    const extracted = reconcileLine({
+      id: "a0",
+      text: "Hi there",
+      agentId: "v1",
+      groupId: "g1",
+      instanceIdx: 0,
+      templateLineIdx: 0,
+      words: [
+        { text: "Hi ", begin: 0, end: 1 },
+        { text: "there", begin: 2, end: 3 },
+      ],
+    });
+    useProjectStore.getState().setLineWithHistory("a0", extracted);
+
+    const sibling = getLine("a1");
+    expect(mainWords(sibling)).toEqual([
+      { text: "Hi ", begin: 10, end: 11 },
+      { text: "there", begin: 12, end: 13 },
+    ]);
+    expect(lineText(sibling)).toBe("Hi there");
   });
 
   it("is a no-op for a missing target and commits no history entry", () => {

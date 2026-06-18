@@ -22,7 +22,6 @@ import {
   getNudgeAmount,
   type SyncState,
   convertLineToWord,
-  createBgWordsFromLine,
   getSyncedLineCount,
   getSyncedWordCount,
   getTotalWords,
@@ -135,19 +134,6 @@ const SyncPanel: React.FC = () => {
     triggerRippleAtCurrentPosition();
     handleHoldEndRaw();
   }, [handleHoldEndRaw, triggerRippleAtCurrentPosition]);
-
-  const updateLine = useProjectStore((s) => s.updateLine);
-
-  useEffect(() => {
-    for (const line of lines) {
-      if (bgText(line) && !bgWords(line)?.length) {
-        const seededBgWords = createBgWordsFromLine(line);
-        if (seededBgWords) {
-          updateLine(line.id, { backgroundWords: seededBgWords }, { deriveText: false });
-        }
-      }
-    }
-  }, [lines, updateLine]);
 
   // RAF animation loop for smooth word progress updates (reads audioElement.currentTime directly)
   useEffect(() => {

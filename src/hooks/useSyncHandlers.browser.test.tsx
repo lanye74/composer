@@ -1,9 +1,9 @@
 import { mainBounds } from "@/domain/line/bounds";
-import { bgText, bgWords as bgWordsOf, lineText, mainWords } from "@/domain/line/voices";
+import { lineText, mainWords } from "@/domain/line/voices";
 import { useSyncHandlers } from "@/hooks/useSyncHandlers";
 import { useProjectStore } from "@/stores/project";
 import { createLine, createWord } from "@/test/factories";
-import { createBgWordsFromLine, type SyncState } from "@/utils/sync-helpers";
+import type { SyncState } from "@/utils/sync-helpers";
 import { describe, expect, it } from "vitest";
 import { renderHook } from "vitest-browser-react";
 
@@ -262,31 +262,5 @@ describe("useSyncHandlers.handleHold (word granularity)", () => {
     const line = useProjectStore.getState().lines[0];
     expect(lineText(line)).toBe(TEXT);
     expect(mainWords(line)?.[1].end).toBe(END_TIME);
-  });
-});
-
-describe("sync-panel bg-init contract", () => {
-  it("preserves backgroundText and text when seeding backgroundWords on a synced line", async () => {
-    const BG_TEXT = "ooh ahh";
-    const ORIGINAL_LINE_TEXT = "Lead vocal melody line";
-    useProjectStore.getState().setLines([
-      createLine({
-        id: "l0",
-        text: ORIGINAL_LINE_TEXT,
-        backgroundText: BG_TEXT,
-        words: [createWord({ text: "Lead ", begin: 0, end: 0.5 }), createWord({ text: "vocal", begin: 0.5, end: 1.0 })],
-      }),
-    ]);
-
-    const line = useProjectStore.getState().lines[0];
-    const bgWords = createBgWordsFromLine(line);
-    expect(bgWords).not.toBeNull();
-    if (!bgWords) return;
-
-    useProjectStore.getState().updateLine(line.id, { backgroundWords: bgWords }, { deriveText: false });
-
-    expect(bgText(useProjectStore.getState().lines[0])).toBe(BG_TEXT);
-    expect(lineText(useProjectStore.getState().lines[0])).toBe(ORIGINAL_LINE_TEXT);
-    expect(bgWordsOf(useProjectStore.getState().lines[0])?.length).toBeGreaterThan(0);
   });
 });

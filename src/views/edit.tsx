@@ -7,11 +7,10 @@ import { isAnyModalOpen } from "@/stores/modal-stack";
 import { useProjectStore } from "@/stores/project";
 import { useSettingsStore } from "@/stores/settings";
 import { getAgentColor } from "@/domain/agent/colors";
-import { backgroundFields } from "@/domain/line/background";
 import type { LinkGroup } from "@/domain/group/template";
 import type { LyricLine } from "@/domain/line/model";
 import { isLineSynced, isWordSynced } from "@/domain/line/predicates";
-import { bgSource, bgText, bgWords, lineText, mainWords } from "@/domain/line/voices";
+import { bgWords, lineText } from "@/domain/line/voices";
 import type { WordTiming } from "@/domain/word/timing";
 import { Button } from "@/ui/button";
 import { Popover } from "@/ui/popover";
@@ -384,9 +383,7 @@ const EditPanel: React.FC = () => {
       words = remapWordTextsPreservingTiming(targetBgWords, newBgText) ?? undefined;
     }
 
-    useProjectStore
-      .getState()
-      .updateLineWithHistory(lineId, backgroundFields({ text: newBgText, words, source: "manual" }));
+    useProjectStore.getState().applyLineBackground(lineId, { text: newBgText, words, source: "manual" });
   }, []);
 
   const handleExtractLine = useCallback((lineId: string) => {
@@ -397,15 +394,7 @@ const EditPanel: React.FC = () => {
       preserveBrackets: useSettingsStore.getState().preserveBracketsOnExtraction,
     });
     if (extracted === target) return;
-    useProjectStore.getState().updateLineWithHistory(lineId, {
-      text: lineText(extracted),
-      words: mainWords(extracted),
-      ...backgroundFields({
-        text: bgText(extracted),
-        words: bgWords(extracted),
-        source: bgSource(extracted) ?? "manual",
-      }),
-    });
+    useProjectStore.getState().setLineWithHistory(lineId, extracted);
   }, []);
 
   const handleLineSelect = useCallback((lineNumber: number, shiftKey: boolean) => {
