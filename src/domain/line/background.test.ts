@@ -2,14 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   applyBackground,
   backgroundFields,
+  buildBackgroundVoice,
   CLEARED_BACKGROUND,
   manualBackgroundWordEdit,
+  setBackground,
 } from "@/domain/line/background";
-import { mainBounds } from "@/domain/line/bounds";
+import { bgBounds, mainBounds } from "@/domain/line/bounds";
 import { reconcileLine } from "@/domain/line/model";
 import type { LyricLine } from "@/domain/line/model";
 import { isLineSynced } from "@/domain/line/predicates";
-import { bgSource, bgText, bgWords, lineText, mainWords } from "@/domain/line/voices";
+import { bgSource, bgText, bgVoice, bgWords, lineText, mainWords } from "@/domain/line/voices";
+import { isLineSynced as isVoiceLineSynced } from "@/domain/voice/predicates";
 import type { WordTiming } from "@/domain/word/timing";
 
 const line: LyricLine = reconcileLine({ id: "a", text: "hello", agentId: "v1" });
@@ -213,5 +216,195 @@ describe("manualBackgroundWordEdit", () => {
       { text: "oh", begin: 0.5, end: 1 },
     ]);
     expect(fields.backgroundText).toBe("oh|oh");
+  });
+});
+
+describe("applyBackground granularity resolution", () => {
+  it("makes untimed bg text a line-synced background on a line-synced main", () => {
+    const lineSynced: LyricLine = reconcileLine({ id: "ls", text: "hello world", agentId: "v1", begin: 2, end: 6 });
+    const result = applyBackground(lineSynced, { text: "ooh", source: "extraction" });
+    expect(bgText(result)).toBe("ooh");
+    expect(bgBounds(result)).toEqual({ begin: 4, end: 6 });
+    expect(bgWords(result)).toBeUndefined();
+    const voice = bgVoice(result);
+    expect(voice).not.toBeNull();
+    expect(isVoiceLineSynced(voice as NonNullable<typeof voice>)).toBe(true);
+  });
+
+  it("distributes untimed bg text over a word-synced main's second half", () => {
+    const wordSynced: LyricLine = reconcileLine({
+      id: "ws",
+      text: "hello world",
+      agentId: "v1",
+      words: [
+        { text: "hello ", begin: 0, end: 2 },
+        { text: "world", begin: 2, end: 4 },
+      ],
+    });
+    const result = applyBackground(wordSynced, { text: "ooh aah", source: "manual" });
+    const words = bgWords(result);
+    expect(words).toBeDefined();
+    expect(words).toHaveLength(2);
+    expect((words as WordTiming[])[0].begin).toBeGreaterThanOrEqual(2);
+    expect((words as WordTiming[])[1].end).toBe(4);
+  });
+
+  it("keeps untimed bg text untimed on an untimed main", () => {
+    const result = applyBackground(line, { text: "ooh", source: "extraction" });
+    expect(bgText(result)).toBe("ooh");
+    expect(bgWords(result)).toBeUndefined();
+    expect(bgBounds(result)).toBeNull();
+  });
+
+  it("keeps a word-synced bg verbatim regardless of main state", () => {
+    const wordSynced: LyricLine = reconcileLine({
+      id: "ws",
+      text: "hello world",
+      agentId: "v1",
+      words: [
+        { text: "hello ", begin: 0, end: 2 },
+        { text: "world", begin: 2, end: 4 },
+      ],
+    });
+    const inputWords: WordTiming[] = [
+      { text: "ooh ", begin: 1, end: 1.5 },
+      { text: "aah", begin: 1.5, end: 2 },
+    ];
+    const result = applyBackground(wordSynced, { words: inputWords, source: "manual" });
+    expect(bgWords(result)).toEqual(inputWords);
+  });
+
+  it("preserves an extraction source through line-synced resolution", () => {
+    const lineSynced: LyricLine = reconcileLine({ id: "ls", text: "hello world", agentId: "v1", begin: 2, end: 6 });
+    const result = applyBackground(lineSynced, { text: "ooh", source: "extraction" });
+    expect(bgSource(result)).toBe("extraction");
+  });
+
+  it("preserves a manual source through distribution", () => {
+    const wordSynced: LyricLine = reconcileLine({
+      id: "ws",
+      text: "hello world",
+      agentId: "v1",
+      words: [
+        { text: "hello ", begin: 0, end: 2 },
+        { text: "world", begin: 2, end: 4 },
+      ],
+    });
+    const result = applyBackground(wordSynced, { text: "ooh aah", source: "manual" });
+    expect(bgSource(result)).toBe("manual");
+  });
+
+  it("clears a line-synced background through the funnel on a blank write", () => {
+    const lineSynced: LyricLine = reconcileLine({ id: "ls", text: "hello world", agentId: "v1", begin: 2, end: 6 });
+    const withBg = applyBackground(lineSynced, { text: "ooh", source: "extraction" });
+    expect(bgBounds(withBg)).toEqual({ begin: 4, end: 6 });
+    const cleared = applyBackground(withBg, { text: "   ", source: "manual" });
+    expect(bgVoice(cleared)).toBeNull();
+    expect("background" in cleared).toBe(false);
+  });
+
+  it("clears a word-synced background through the funnel on a blank write", () => {
+    const wordSynced: LyricLine = reconcileLine({
+      id: "ws",
+      text: "hello world",
+      agentId: "v1",
+      words: [
+        { text: "hello ", begin: 0, end: 2 },
+        { text: "world", begin: 2, end: 4 },
+      ],
+    });
+    const withBg = applyBackground(wordSynced, { words: [bgWord], source: "manual" });
+    expect(bgWords(withBg)).toEqual([bgWord]);
+    const cleared = applyBackground(withBg, { text: "", source: "manual" });
+    expect(bgVoice(cleared)).toBeNull();
+    expect("background" in cleared).toBe(false);
+  });
+});
+
+describe("setBackground", () => {
+  const voice = { text: "ooh", begin: 1, end: 2, source: "manual" } as const;
+
+  it("sets a nested background voice and returns a new reference", () => {
+    const snapshot = structuredClone(line);
+    const result = setBackground(line, { ...voice });
+    expect(result).not.toBe(line);
+    expect(bgVoice(result)).toEqual(voice);
+    expect(line).toEqual(snapshot);
+  });
+
+  it("removes the background key entirely on a null write", () => {
+    const withBg = setBackground(line, { ...voice });
+    const cleared = setBackground(withBg, null);
+    expect("background" in cleared).toBe(false);
+    expect(bgVoice(cleared)).toBeNull();
+  });
+
+  it("is idempotent when clearing an already-absent background", () => {
+    const cleared = setBackground(line, null);
+    expect("background" in cleared).toBe(false);
+    expect(bgVoice(cleared)).toBeNull();
+  });
+
+  it("leaves every background accessor coherent after a clear", () => {
+    const withBg = setBackground(line, { text: "ooh", words: [bgWord], source: "extraction" });
+    const cleared = setBackground(withBg, null);
+    expect(bgText(cleared)).toBeUndefined();
+    expect(bgWords(cleared)).toBeUndefined();
+    expect(bgSource(cleared)).toBeUndefined();
+    expect(bgBounds(cleared)).toBeNull();
+  });
+});
+
+describe("buildBackgroundVoice", () => {
+  it("builds a word-synced voice when words are present, defaulting text to empty", () => {
+    expect(buildBackgroundVoice({ words: [bgWord], source: "extraction" })).toEqual({
+      text: "",
+      words: [bgWord],
+      source: "extraction",
+    });
+  });
+
+  it("builds an untimed voice from text only", () => {
+    expect(buildBackgroundVoice({ text: "ooh", source: "manual" })).toEqual({ text: "ooh", source: "manual" });
+  });
+
+  it("returns null for whitespace-only text with no words", () => {
+    expect(buildBackgroundVoice({ text: "   ", source: "manual" })).toBeNull();
+  });
+
+  it("returns null for empty text with no words", () => {
+    expect(buildBackgroundVoice({ text: "", source: "extraction" })).toBeNull();
+  });
+
+  it("treats an empty words array with text as untimed, not word-synced", () => {
+    expect(buildBackgroundVoice({ words: [], text: "ooh", source: "manual" })).toEqual({
+      text: "ooh",
+      source: "manual",
+    });
+  });
+
+  it("lets words win when both text and words are present", () => {
+    expect(buildBackgroundVoice({ text: "ooh", words: [bgWord], source: "manual" })).toEqual({
+      text: "ooh",
+      words: [bgWord],
+      source: "manual",
+    });
+  });
+});
+
+describe("applyBackground invariants", () => {
+  it("composes to a fixed point on a line-synced main", () => {
+    const lineSynced: LyricLine = reconcileLine({ id: "ls", text: "hello world", agentId: "v1", begin: 2, end: 6 });
+    const params = { text: "ooh", source: "extraction" } as const;
+    const once = applyBackground(lineSynced, params);
+    const twice = applyBackground(once, params);
+    expect(twice).toEqual(once);
+  });
+
+  it("does not mutate the input line during resolution", () => {
+    const lineSynced: LyricLine = reconcileLine({ id: "ls", text: "hello world", agentId: "v1", begin: 2, end: 6 });
+    const snapshot = structuredClone(lineSynced);
+    applyBackground(lineSynced, { text: "ooh", source: "extraction" });
+    expect(lineSynced).toEqual(snapshot);
   });
 });

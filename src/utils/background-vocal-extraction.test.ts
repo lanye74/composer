@@ -430,7 +430,10 @@ describe("extractInlineFromLine", () => {
     expect(result).not.toBe(line);
     expect(lineText(result)).toBe("Hi there");
     expect(bgText(result)).toBe("ooh");
-    expect(bgWords(result)).toBeUndefined();
+    // The funnel now resolves the background to word-synced at creation against
+    // the word-synced survivors (main bounds [0,3], second half [1.5,3]),
+    // folding in what the former sync-panel effect did lazily.
+    expect(bgWords(result)).toEqual([{ text: "ooh", begin: 1.5, end: 3 }]);
     expect(mainWords(result)).toEqual([
       { text: "Hi ", begin: 0, end: 1 },
       { text: "there", begin: 2, end: 3 },
@@ -504,7 +507,10 @@ describe("extractInlineFromLine: word-synced extraction", () => {
     expect(result).not.toBe(line);
     expect(lineText(result)).toBe("Hello world");
     expect(bgText(result)).toBe("ooh");
-    expect(bgWords(result)).toBeUndefined();
+    // The funnel now resolves the background to word-synced at creation against
+    // the word-synced survivors (main bounds [0.5,2.7], second half [1.6,2.7]),
+    // folding in what the former sync-panel effect did lazily.
+    expect(bgWords(result)).toEqual([{ text: "ooh", begin: 1.6, end: 2.7 }]);
     expect(mainWords(result)).toEqual([
       { text: "Hello ", begin: 0.5, end: 1.2 },
       { text: "world", begin: 1.9, end: 2.7 },
