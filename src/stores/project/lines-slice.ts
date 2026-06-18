@@ -1,6 +1,6 @@
 import { extractLinkedFields, getLinkScope, isLinkedSibling } from "@/domain/group/linking";
 import { propagateWordChanges } from "@/domain/group/smart-sync";
-import { manualBackgroundWordEdit } from "@/domain/line/background";
+import { applyBackground, manualBackgroundWordEdit } from "@/domain/line/background";
 import { type LooseLine, reconcileLine, toFlat } from "@/domain/line/model";
 import { withDerivedText } from "@/domain/line/reconstruct-text";
 import { bgWords, mainWords } from "@/domain/line/voices";
@@ -12,6 +12,7 @@ import {
   applyMergeSyllableGroup,
   applyMoveFromBg,
   applyMoveToBg,
+  commitNestedLineReplace,
   fieldWords,
 } from "@/stores/project/lines-slice-helpers";
 import { applySyllableSplitToLines } from "@/stores/project/syllable-split-helpers";
@@ -121,6 +122,21 @@ const createLinesSlice: StateCreator<ProjectStore, [], [], LinesState & LineActi
       }
 
       return commitHistory(state, { lines: newLines }, historyOptions);
+    }),
+
+  setLineWithHistory: (lineId, nextLine, options = {}) =>
+    set((state) => {
+      const { propagateToSiblings = true } = options;
+      return commitNestedLineReplace(state, lineId, nextLine, propagateToSiblings);
+    }),
+
+  applyLineBackground: (lineId, params, options = {}) =>
+    set((state) => {
+      const { propagateToSiblings = true } = options;
+      const target = state.lines.find((l) => l.id === lineId);
+      if (!target) return state;
+      const nextLine = applyBackground(target, params);
+      return commitNestedLineReplace(state, lineId, nextLine, propagateToSiblings);
     }),
 
   moveWordToBg: (lineId, wordIndices, timeDelta, duration) =>

@@ -1,12 +1,14 @@
 import { getLinkScope, isLinkedSibling } from "@/domain/group/linking";
-import { applyBackground, CLEARED_BACKGROUND, manualBackgroundWordEdit } from "@/domain/line/background";
+import { applyBackground, CLEARED_BACKGROUND, manualBackgroundWordEdit, setBackground } from "@/domain/line/background";
 import { applyMainWordEdit } from "@/domain/line/main-words";
 import { type LyricLine, reconcileLine, toFlat } from "@/domain/line/model";
 import { reconstructLineText } from "@/domain/line/reconstruct-text";
-import { bgWords, mainWords } from "@/domain/line/voices";
+import { bgSource, bgText, bgWords, lineText, mainWords } from "@/domain/line/voices";
 import { mergeWordsIntoTrack } from "@/domain/word/merge-track";
 import { computeByGroupId, expandSelectionToGroupmates } from "@/domain/word/syllable-groups";
 import type { WordTiming } from "@/domain/word/timing";
+import { commitHistory } from "@/stores/project/history-helpers";
+import type { ProjectState } from "@/stores/project/types";
 import { getSplitCharacter } from "@/utils/split-character";
 import { resolveOverlapsForward, trimTrailingSpaceFromLast } from "@/utils/word-spaces";
 import { applySiblingWords } from "@/utils/word-diff";
@@ -224,6 +226,50 @@ function applyMarkWordsExplicit(lines: LyricLine[], targets: ExplicitTarget[], v
   return current;
 }
 
+// -- Nested-aware background write --------------------------------------------
+
+// The single chokepoint for the nested full-line replace + linked-sibling
+// background re-resolution. Replaces the target with nextLine, then (when
+// propagating and linked) mirrors the shared linked content onto each sibling
+// and re-resolves the sibling's background from nextLine's shared bg text +
+// source against the SIBLING's own main, so each sibling gets instance-specific
+// granularity. Word-level bg timings are never copied across instances.
+function commitNestedLineReplace(
+  state: ProjectState,
+  lineId: string,
+  nextLine: LyricLine,
+  propagateToSiblings: boolean,
+) {
+  const target = state.lines.find((l) => l.id === lineId);
+  if (!target) return state;
+  const linkScope = propagateToSiblings ? getLinkScope(target) : null;
+  const sharedText = bgText(nextLine);
+  const sharedSource = bgSource(nextLine);
+
+  const newLines = state.lines.map((line) => {
+    if (line.id === lineId) return nextLine;
+    if (!isLinkedSibling(line, linkScope)) return line;
+
+    const siblingWithText =
+      lineText(line) === lineText(nextLine) && line.agentId === nextLine.agentId
+        ? line
+        : reconcileLine({ ...toFlat(line), text: lineText(nextLine), agentId: nextLine.agentId });
+
+    return sharedText === undefined
+      ? setBackground(siblingWithText, null)
+      : applyBackground(siblingWithText, { text: sharedText, source: sharedSource ?? "manual" });
+  });
+
+  return commitHistory(state, { lines: newLines });
+}
+
 // -- Exports ------------------------------------------------------------------
 
-export { applyMarkWordsExplicit, applyMergeSyllableGroup, applyMoveFromBg, applyMoveToBg, fieldWords };
+export {
+  applyMarkWordsExplicit,
+  applyMergeSyllableGroup,
+  applyMoveFromBg,
+  applyMoveToBg,
+  commitNestedLineReplace,
+  fieldWords,
+};

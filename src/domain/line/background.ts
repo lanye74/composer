@@ -98,3 +98,5 @@ export {
   manualBackgroundWordEdit,
   setBackground,
 };
+
+export type { BackgroundParams };

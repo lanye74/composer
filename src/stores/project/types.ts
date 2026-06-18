@@ -1,5 +1,6 @@
 import type { Agent } from "@/domain/agent/model";
 import type { LineTemplate, LinkGroup } from "@/domain/group/template";
+import type { BackgroundParams } from "@/domain/line/background";
 import type { LooseLine, LyricLine } from "@/domain/line/model";
 import type { ProjectMetadata } from "@/domain/project/metadata";
 import type { SnapPoint } from "@/domain/snap-point/model";
@@ -138,6 +139,8 @@ interface LineActions {
     updates: Array<{ id: string; updates: Partial<LooseLine> }>,
     options?: { deriveText?: boolean; propagateToSiblings?: boolean },
   ) => void;
+  setLineWithHistory: (lineId: string, nextLine: LyricLine, options?: { propagateToSiblings?: boolean }) => void;
+  applyLineBackground: (lineId: string, params: BackgroundParams, options?: { propagateToSiblings?: boolean }) => void;
   moveWordToBg: (lineId: string, wordIndices: number[], timeDelta: number, duration: number) => void;
   moveWordFromBg: (lineId: string, wordIndices: number[], timeDelta: number, duration: number) => void;
   applyWordCountChange: (
