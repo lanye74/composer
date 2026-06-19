@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { LineRow } from "@/views/timeline/line-row";
-import { mainBounds } from "@/domain/line/bounds";
+import { setBackground } from "@/domain/line/background";
+import { bgBounds, mainBounds } from "@/domain/line/bounds";
 import { reconcileLine } from "@/domain/line/model";
 import { isLineSynced } from "@/domain/voice/predicates";
-import { bgSource, bgVoice, bgWords, lineText } from "@/domain/line/voices";
+import { bgSource, bgText, bgVoice, bgWords, lineText } from "@/domain/line/voices";
 import { useAudioStore } from "@/stores/audio";
 import { useProjectStore } from "@/stores/project";
 import { useSettingsStore } from "@/stores/settings";
@@ -191,6 +192,147 @@ describe("LineRow · place line keeps linked sibling background", () => {
     const wordCount = splitIntoWordsWithMeta(lineText(getLine("target"))).parts.length;
     await expect.poll(() => isLineSynced(getLine("target").main)).toBe(true);
     expect(mainBounds(getLine("target"))).toEqual({
+      begin: placeTime,
+      end: placeTime + Math.max(wordCount, 1) * wordDuration,
+    });
+
+    expect(bgVoice(getLine("sibling"))).toEqual(siblingBgBefore);
+    expect(bgWords(getLine("sibling"))).toEqual([
+      { text: "ooh ", begin: 20, end: 20.5 },
+      { text: "ooh", begin: 20.5, end: 21 },
+    ]);
+  });
+});
+
+// Task 8.2: the background lane renders three timing states. An untimed bg shows
+// a Place button that line-syncs it; a line-synced bg renders a single bar (no
+// word blocks); a word-synced bg keeps its WordTrack word blocks. The Place
+// write is per-instance and must not touch a linked sibling's background.
+describe("LineRow · background lane three timing states", () => {
+  function getLine(id: string) {
+    const line = useProjectStore.getState().lines.find((l) => l.id === id);
+    if (!line) throw new Error(`line ${id} not found`);
+    return line;
+  }
+
+  function bgPlaceButton(container: HTMLElement) {
+    return Array.from(container.querySelectorAll("button")).find((b) => b.textContent === "Place" && b.dataset.bgPlace);
+  }
+
+  it("shows a Place button for an untimed background and clicking it line-syncs the background", async () => {
+    const placeTime = 7;
+    useAudioStore.setState({ currentTime: placeTime });
+    const line = createLine({ id: "l1", text: "main here", backgroundText: "ooh ooh ooh" });
+    useProjectStore.setState({ lines: [line] });
+
+    const screen = await render(
+      <LineRow line={line} lineIndex={0} duration={30} onUpdateWord={() => {}} onUpdateBgWord={() => {}} />,
+      { dndContext: true },
+    );
+
+    const placeButton = bgPlaceButton(screen.container);
+    expect(placeButton).toBeDefined();
+    placeButton?.click();
+
+    const wordDuration = useSettingsStore.getState().defaultWordDuration;
+    const wordCount = splitIntoWordsWithMeta("ooh ooh ooh").parts.length;
+    await expect
+      .poll(() => bgBounds(getLine("l1")))
+      .toEqual({
+        begin: placeTime,
+        end: placeTime + Math.max(wordCount, 1) * wordDuration,
+      });
+    expect(bgWords(getLine("l1"))).toBeUndefined();
+    expect(bgText(getLine("l1"))).toBe("ooh ooh ooh");
+    expect(bgSource(getLine("l1"))).toBe("manual");
+  });
+
+  it("renders a single bar for a line-synced background and no bg word blocks", async () => {
+    const main = createLine({ id: "l1", text: "main here", words: [createWord({ text: "main", begin: 0, end: 1 })] });
+    const line = setBackground(main, { text: "ooh ooh", begin: 3, end: 5, source: "manual" });
+    useProjectStore.setState({ lines: [line] });
+
+    const screen = await render(
+      <LineRow line={line} lineIndex={0} duration={30} onUpdateWord={() => {}} onUpdateBgWord={() => {}} />,
+      { dndContext: true },
+    );
+
+    const bars = screen.container.querySelectorAll("[data-testid='bg-line-bar']");
+    expect(bars.length).toBe(1);
+    const bar = bars[0] as HTMLElement;
+    const zoom = useTimelineStore.getState().zoom;
+    expect(bar.style.left).toBe(`${3 * zoom}px`);
+    expect(bar.style.width).toBe(`${(5 - 3) * zoom}px`);
+    expect(bar.textContent).toContain("ooh ooh");
+
+    expect(bgBounds(getLine("l1"))).toEqual({ begin: 3, end: 5 });
+    expect(bgWords(getLine("l1"))).toBeUndefined();
+  });
+
+  it("keeps rendering word blocks for a word-synced background (regression guard)", async () => {
+    const line = createLine({
+      id: "l1",
+      text: "main here",
+      words: [createWord({ text: "main", begin: 0, end: 1 })],
+      backgroundText: "(echo)",
+      backgroundWords: [createWord({ text: "(echo)", begin: 2, end: 3 })],
+    });
+    useProjectStore.setState({ lines: [line] });
+
+    const screen = await render(
+      <LineRow line={line} lineIndex={0} duration={30} onUpdateWord={() => {}} onUpdateBgWord={() => {}} />,
+      { dndContext: true },
+    );
+
+    expect(screen.container.querySelectorAll("[data-testid='bg-line-bar']").length).toBe(0);
+    expect(screen.container.querySelectorAll("[data-word-block]").length).toBe(2);
+  });
+
+  it("placing a background via the bg Place button leaves a linked sibling's background untouched", async () => {
+    const placeTime = 6;
+    const group = createGroup({ id: "g1" });
+    const target = reconcileLine({
+      id: "target",
+      text: "I love you",
+      agentId: "v1",
+      groupId: "g1",
+      instanceIdx: 0,
+      templateLineIdx: 0,
+      backgroundText: "ah ah",
+      backgroundTextSource: "manual",
+    });
+    const sibling = reconcileLine({
+      id: "sibling",
+      text: "I love you",
+      agentId: "v1",
+      groupId: "g1",
+      instanceIdx: 1,
+      templateLineIdx: 0,
+      backgroundText: "ooh ooh",
+      backgroundWords: [
+        { text: "ooh ", begin: 20, end: 20.5 },
+        { text: "ooh", begin: 20.5, end: 21 },
+      ],
+      backgroundTextSource: "manual",
+    });
+    useProjectStore.setState({ groups: [group], lines: [target, sibling] });
+    useAudioStore.setState({ currentTime: placeTime });
+    const siblingBgBefore = bgVoice(getLine("sibling"));
+    expect(siblingBgBefore).not.toBeNull();
+
+    const screen = await render(
+      <LineRow line={target} lineIndex={0} duration={30} onUpdateWord={() => {}} onUpdateBgWord={() => {}} />,
+      { dndContext: true },
+    );
+
+    const placeButton = bgPlaceButton(screen.container);
+    expect(placeButton).toBeDefined();
+    placeButton?.click();
+
+    const wordDuration = useSettingsStore.getState().defaultWordDuration;
+    const wordCount = splitIntoWordsWithMeta("ah ah").parts.length;
+    await expect.poll(() => isLineSynced(getLine("target").background!)).toBe(true);
+    expect(bgBounds(getLine("target"))).toEqual({
       begin: placeTime,
       end: placeTime + Math.max(wordCount, 1) * wordDuration,
     });
