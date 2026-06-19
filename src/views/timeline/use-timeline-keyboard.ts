@@ -17,7 +17,7 @@ import { createGroupFromSelection, fillSelectionGaps, instanceToTemplate } from 
 import { scrollToInstanceHeader } from "@/views/timeline/scroll-helpers";
 import { adjacentSnapPoint } from "@/views/timeline/snap-marker-math";
 import { normalizeTimes, snapPointTimes } from "@/domain/snap-point/model";
-import { splitLinesIntoWords } from "@/views/timeline/split-lines-into-words";
+import { splitVoiceIntoWords } from "@/views/timeline/split-lines-into-words";
 import { mergeWordText } from "@/utils/word-merge";
 import type { WordSelection } from "@/domain/selection/model";
 import { GUTTER_WIDTH, useTimelineStore, WAVEFORM_HEIGHT } from "@/views/timeline/timeline-store";
@@ -459,8 +459,9 @@ function useTimelineKeyboard(
           const { selectedWords: wSel } = useTimelineStore.getState();
           if (wSel.length === 0) break;
           e.preventDefault();
-          const lineIds = new Set(wSel.map((w) => w.lineId));
-          splitLinesIntoWords(lineIds, lines);
+          const splitVoice = wSel[0].type === "word" ? "main" : "bg";
+          const lineIds = new Set(wSel.flatMap((w) => (w.type === wSel[0].type ? [w.lineId] : [])));
+          splitVoiceIntoWords(lineIds, lines, splitVoice);
           break;
         }
         case "timeline.expandAll": {

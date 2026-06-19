@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { setBackground } from "@/domain/line/background";
 import { bgBounds, mainBounds } from "@/domain/line/bounds";
-import { bgSource, bgText, bgWords, mainWords } from "@/domain/line/voices";
+import { reconcileLine } from "@/domain/line/model";
+import { isLineSynced } from "@/domain/line/predicates";
+import { bgSource, bgText, bgVoice, bgWords, mainWords } from "@/domain/line/voices";
+import { isWordSynced as isVoiceWordSynced } from "@/domain/voice/predicates";
 import { TimelineContextMenu } from "@/views/timeline/timeline-context-menu";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import { useAudioStore } from "@/stores/audio";
@@ -392,5 +396,73 @@ describe("TimelineContextMenu · Place background here (bg track only)", () => {
     expect(bgBounds(updated)).toEqual({ begin: 5, end: 5 + 2 * 0.3 });
     expect(mainBounds(updated)).toBeNull();
     expect(mainWords(updated)).toBeUndefined();
+  });
+});
+
+// -- Voice-aware split into words ---------------------------------------------
+
+function openWordTarget(lineId: string, type: "word" | "bg") {
+  useTimelineStore.setState({
+    contextMenu: { x: 100, y: 100, target: { kind: "word", lineId, lineIndex: 0, wordIndex: 0, type } },
+    selectedWords: [{ lineId, lineIndex: 0, wordIndex: 0, type }],
+  });
+}
+
+describe("TimelineContextMenu · Split into words (voice-aware)", () => {
+  it("labels the main voice action 'Split into words'", async () => {
+    useProjectStore.setState({
+      lines: [reconcileLine({ id: "l1", text: "one two", agentId: "v1", begin: 1, end: 3 })],
+    });
+    openWordTarget("l1", "word");
+    await render(<TimelineContextMenu />);
+    expect(findButton(/Split into words/)).toBeDefined();
+    expect(findButton(/Split background into words/)).toBeUndefined();
+  });
+
+  it("labels the bg voice action 'Split background into words'", async () => {
+    const main = reconcileLine({ id: "l1", text: "lead", agentId: "v1", words: [{ text: "lead", begin: 0, end: 2 }] });
+    const raw = setBackground(main, { text: "ooh ooh", begin: 3, end: 5, source: "manual" });
+    useProjectStore.setState({ lines: [raw] });
+    openWordTarget("l1", "bg");
+    await render(<TimelineContextMenu />);
+    expect(findButton(/Split background into words/)).toBeDefined();
+    expect(findButton(/Split into words/)).toBeUndefined();
+  });
+
+  it("splits the line-synced bg into words and leaves the main untouched when clicked", async () => {
+    const main = reconcileLine({
+      id: "l1",
+      text: "lead",
+      agentId: "v1",
+      words: [{ text: "lead", begin: 0, end: 2 }],
+    });
+    const raw = setBackground(main, { text: "ooh ooh ooh", begin: 3, end: 6, source: "manual" });
+    useProjectStore.setState({ lines: [raw] });
+    openWordTarget("l1", "bg");
+    await render(<TimelineContextMenu />);
+
+    findButton(/Split background into words/)?.click();
+
+    const updated = useProjectStore.getState().lines[0];
+    const bg = bgVoice(updated);
+    expect(bg).not.toBeNull();
+    expect(isVoiceWordSynced(bg!)).toBe(true);
+    expect(bgWords(updated)?.length).toBe(3);
+    expect(bgBounds(updated)).toEqual({ begin: 3, end: 6 });
+    expect(mainWords(updated)).toEqual([{ text: "lead", begin: 0, end: 2 }]);
+  });
+
+  it("splits the line-synced main into words when the main action is clicked", async () => {
+    useProjectStore.setState({
+      lines: [reconcileLine({ id: "l1", text: "one two three", agentId: "v1", begin: 1, end: 4 })],
+    });
+    openWordTarget("l1", "word");
+    await render(<TimelineContextMenu />);
+
+    findButton(/Split into words/)?.click();
+
+    const updated = useProjectStore.getState().lines[0];
+    expect(isLineSynced(updated)).toBe(false);
+    expect(mainWords(updated)?.length).toBe(3);
   });
 });

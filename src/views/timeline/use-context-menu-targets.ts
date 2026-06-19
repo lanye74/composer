@@ -2,12 +2,14 @@ import { bgBounds, mainBounds } from "@/domain/line/bounds";
 import type { LyricLine } from "@/domain/line/model";
 import { getEffectiveLines } from "@/domain/line/effective-words";
 import { isLineSynced } from "@/domain/line/predicates";
-import { bgText, bgWords, lineText, mainWords } from "@/domain/line/voices";
+import { bgText, bgVoice, bgWords, lineText, mainWords } from "@/domain/line/voices";
 import { contiguousSelectionRun } from "@/domain/selection/contiguous";
+import { isLineSynced as isVoiceLineSynced } from "@/domain/voice/predicates";
 import { hasIntraGroupGap } from "@/domain/word/syllable-groups";
 import { fieldWords } from "@/stores/project/lines-slice-helpers";
 import { useProjectStore } from "@/stores/project";
 import { createGroupFromSelection, fillSelectionGaps } from "@/views/timeline/group-ops";
+import type { SplitVoice } from "@/views/timeline/split-lines-into-words";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import { useMemo } from "react";
 
@@ -135,19 +137,24 @@ function useContextMenuTargets() {
   const splitIntoWordsInfo = useMemo(() => {
     if (!contextMenu || contextMenu.target.kind !== "word") return null;
     const target = contextMenu.target;
+    const voice: SplitVoice = target.type === "word" ? "main" : "bg";
 
-    const selectedLineIds = new Set(selectedWords.map((w) => w.lineId));
+    const sameVoiceLineIds = selectedWords.flatMap((w) => (w.type === target.type ? [w.lineId] : []));
+    const selectedLineIds = new Set(sameVoiceLineIds);
     const targetIds =
       selectedLineIds.has(target.lineId) && selectedLineIds.size > 0 ? [...selectedLineIds] : [target.lineId];
 
     const rawLinesById = new Map(rawLines.map((l) => [l.id, l] as const));
     const lineSyncedIds = targetIds.filter((id) => {
       const realLine = rawLinesById.get(id);
-      return realLine && isLineSynced(realLine);
+      if (!realLine) return false;
+      if (voice === "main") return isLineSynced(realLine);
+      const bg = bgVoice(realLine);
+      return bg !== null && isVoiceLineSynced(bg);
     });
 
     if (lineSyncedIds.length === 0) return null;
-    return { count: lineSyncedIds.length };
+    return { count: lineSyncedIds.length, voice };
   }, [contextMenu, selectedWords, rawLines]);
 
   return {

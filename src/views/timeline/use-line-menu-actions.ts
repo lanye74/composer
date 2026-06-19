@@ -3,7 +3,7 @@ import { placeVoice } from "@/domain/line/place-voice";
 import { useProjectStore } from "@/stores/project";
 import { useSettingsStore } from "@/stores/settings";
 import { showGroupActionToast } from "@/utils/group-toast";
-import { splitLinesIntoWords } from "@/views/timeline/split-lines-into-words";
+import { splitVoiceIntoWords } from "@/views/timeline/split-lines-into-words";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import type { useContextMenuTargets } from "@/views/timeline/use-context-menu-targets";
 import { useCallback } from "react";
@@ -15,7 +15,7 @@ type ContextMenuTargets = ReturnType<typeof useContextMenuTargets>;
 // -- Hook ---------------------------------------------------------------------
 
 function useLineMenuActions(targets: ContextMenuTargets, clearContextMenu: () => void) {
-  const { lines, gutterLineGroupInfo } = targets;
+  const { lines, gutterLineGroupInfo, splitIntoWordsInfo } = targets;
   const contextMenu = useTimelineStore((s) => s.contextMenu);
   const selectedWords = useTimelineStore((s) => s.selectedWords);
   const rawLines = useProjectStore((s) => s.lines);
@@ -95,15 +95,17 @@ function useLineMenuActions(targets: ContextMenuTargets, clearContextMenu: () =>
   );
 
   const handleSplitIntoWords = useCallback(() => {
-    if (!contextMenu || contextMenu.target.kind !== "word") return;
-    const { lineId } = contextMenu.target;
+    if (!contextMenu || contextMenu.target.kind !== "word" || !splitIntoWordsInfo) return;
+    const { lineId, type } = contextMenu.target;
+    const { voice } = splitIntoWordsInfo;
 
-    const selectedLineIds = new Set(selectedWords.map((w) => w.lineId));
+    const sameVoiceLineIds = selectedWords.flatMap((w) => (w.type === type ? [w.lineId] : []));
+    const selectedLineIds = new Set(sameVoiceLineIds);
     const targetIds = selectedLineIds.has(lineId) && selectedLineIds.size > 0 ? [...selectedLineIds] : [lineId];
 
-    splitLinesIntoWords(targetIds, lines);
+    splitVoiceIntoWords(targetIds, lines, voice);
     clearContextMenu();
-  }, [contextMenu, selectedWords, lines, clearContextMenu]);
+  }, [contextMenu, selectedWords, lines, splitIntoWordsInfo, clearContextMenu]);
 
   return {
     handlePlaceLineHere,
