@@ -2,12 +2,12 @@ import { useAudioStore } from "@/stores/audio";
 import { useProjectStore } from "@/stores/project";
 import { backgroundFields } from "@/domain/line/background";
 import type { LyricLine } from "@/domain/line/model";
-import { placeVoice } from "@/domain/line/place-voice";
 import { bgText, bgWords } from "@/domain/line/voices";
 import type { WordTiming } from "@/domain/word/timing";
 import { useSettingsStore } from "@/stores/settings";
 import { cn } from "@/utils/cn";
 import { findInsertionSlot } from "@/utils/word-spaces";
+import { placeVoiceAtPlayhead } from "@/views/timeline/place-voice-at-playhead";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import { WordTrack } from "@/views/timeline/word-track";
 import { useDroppable } from "@dnd-kit/core";
@@ -42,15 +42,7 @@ const PlaceBgButton: React.FC<{ lineId: string }> = ({ lineId }) => {
   const placeBackground = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      const line = useProjectStore.getState().lines.find((l) => l.id === lineId);
-      if (!line) return;
-      const currentTime = useAudioStore.getState().currentTime;
-      const wordDuration = useSettingsStore.getState().defaultWordDuration;
-      // Placing one instance is a per-instance timing write; propagating would
-      // clear or re-resolve linked siblings' backgrounds (regression vs the old path).
-      useProjectStore.getState().setLineWithHistory(lineId, placeVoice(line, "background", currentTime, wordDuration), {
-        propagateToSiblings: false,
-      });
+      placeVoiceAtPlayhead(lineId, "background");
     },
     [lineId],
   );

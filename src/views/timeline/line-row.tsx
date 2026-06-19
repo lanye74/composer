@@ -2,7 +2,6 @@ import { useAudioStore } from "@/stores/audio";
 import { useProjectStore } from "@/stores/project";
 import { getAgentColor } from "@/domain/agent/colors";
 import type { LyricLine } from "@/domain/line/model";
-import { placeVoice } from "@/domain/line/place-voice";
 import { lineText, mainWords } from "@/domain/line/voices";
 import type { WordTiming } from "@/domain/word/timing";
 import { useSettingsStore } from "@/stores/settings";
@@ -11,6 +10,7 @@ import { stripSplitCharacter } from "@/utils/split-character";
 import { findInsertionSlot } from "@/utils/word-spaces";
 import { GutterAgentPicker } from "@/views/timeline/gutter-agent-picker";
 import { LineBgLane } from "@/views/timeline/line-bg-lane";
+import { placeVoiceAtPlayhead } from "@/views/timeline/place-voice-at-playhead";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import { WordTrack } from "@/views/timeline/word-track";
 import { useDroppable } from "@dnd-kit/core";
@@ -43,15 +43,7 @@ const SyncLineButton: React.FC<{ lineId: string }> = ({ lineId }) => {
   const selectLineWords = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      const line = useProjectStore.getState().lines.find((l) => l.id === lineId);
-      if (!line) return;
-      const currentTime = useAudioStore.getState().currentTime;
-      const wordDuration = useSettingsStore.getState().defaultWordDuration;
-      // Placing one instance is a per-instance timing write; propagating would
-      // clear or re-resolve linked siblings' backgrounds (regression vs the old path).
-      useProjectStore.getState().setLineWithHistory(lineId, placeVoice(line, "main", currentTime, wordDuration), {
-        propagateToSiblings: false,
-      });
+      placeVoiceAtPlayhead(lineId, "main");
     },
     [lineId],
   );
