@@ -3,12 +3,12 @@ import { useProjectStore } from "@/stores/project";
 import { getAgentColor } from "@/domain/agent/colors";
 import { backgroundFields } from "@/domain/line/background";
 import type { LyricLine } from "@/domain/line/model";
+import { placeVoice } from "@/domain/line/place-voice";
 import { bgText, bgWords, lineText, mainWords } from "@/domain/line/voices";
 import type { WordTiming } from "@/domain/word/timing";
 import { useSettingsStore } from "@/stores/settings";
 import { cn } from "@/utils/cn";
 import { stripSplitCharacter } from "@/utils/split-character";
-import { splitIntoWordsWithMeta } from "@/utils/sync-helpers";
 import { findInsertionSlot } from "@/utils/word-spaces";
 import { GutterAgentPicker } from "@/views/timeline/gutter-agent-picker";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
@@ -43,20 +43,17 @@ const BG_DROP_ZONE_HEIGHT = 24;
 
 // -- AddWordsButton ------------------------------------------------------------
 
-const SyncLineButton: React.FC<{ lineId: string; wordCount: number }> = ({ lineId, wordCount }) => {
+const SyncLineButton: React.FC<{ lineId: string }> = ({ lineId }) => {
   const selectLineWords = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
+      const line = useProjectStore.getState().lines.find((l) => l.id === lineId);
+      if (!line) return;
       const currentTime = useAudioStore.getState().currentTime;
       const wordDuration = useSettingsStore.getState().defaultWordDuration;
-      const lineDuration = Math.max(wordCount, 1) * wordDuration;
-
-      useProjectStore.getState().updateLineWithHistory(lineId, {
-        begin: currentTime,
-        end: currentTime + lineDuration,
-      });
+      useProjectStore.getState().setLineWithHistory(lineId, placeVoice(line, "main", currentTime, wordDuration));
     },
-    [lineId, wordCount],
+    [lineId],
   );
 
   return (
@@ -234,9 +231,7 @@ const LineRow: React.FC<LineRowProps> = ({ line, lineIndex, duration, onUpdateWo
                   {displayText.slice(0, 60)}
                   {displayText.length > 60 ? "..." : ""}
                 </span>
-                {displayText.length > 0 && (
-                  <SyncLineButton lineId={line.id} wordCount={splitIntoWordsWithMeta(lineText(line)).parts.length} />
-                )}
+                {displayText.length > 0 && <SyncLineButton lineId={line.id} />}
               </div>
             </div>
           )}

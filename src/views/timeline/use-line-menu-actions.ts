@@ -1,9 +1,8 @@
 import { reconcileLine } from "@/domain/line/model";
-import { lineText } from "@/domain/line/voices";
+import { placeVoice } from "@/domain/line/place-voice";
 import { useProjectStore } from "@/stores/project";
 import { useSettingsStore } from "@/stores/settings";
 import { showGroupActionToast } from "@/utils/group-toast";
-import { splitIntoWordsWithMeta } from "@/utils/sync-helpers";
 import { splitLinesIntoWords } from "@/views/timeline/split-lines-into-words";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import type { useContextMenuTargets } from "@/views/timeline/use-context-menu-targets";
@@ -22,6 +21,7 @@ function useLineMenuActions(targets: ContextMenuTargets, clearContextMenu: () =>
   const rawLines = useProjectStore((s) => s.lines);
   const agents = useProjectStore((s) => s.agents);
   const updateLineWithHistory = useProjectStore((s) => s.updateLineWithHistory);
+  const setLineWithHistory = useProjectStore((s) => s.setLineWithHistory);
   const setLinesWithHistory = useProjectStore((s) => s.setLinesWithHistory);
 
   const handlePlaceLineHere = useCallback(() => {
@@ -30,14 +30,9 @@ function useLineMenuActions(targets: ContextMenuTargets, clearContextMenu: () =>
     const line = rawLines.find((l) => l.id === lineId);
     if (!line) return;
     const wordDuration = useSettingsStore.getState().defaultWordDuration;
-    const wordCount = splitIntoWordsWithMeta(lineText(line)).parts.length;
-    const lineDuration = Math.max(wordCount, 1) * wordDuration;
-    updateLineWithHistory(lineId, {
-      begin: time,
-      end: time + lineDuration,
-    });
+    setLineWithHistory(lineId, placeVoice(line, "main", time, wordDuration));
     clearContextMenu();
-  }, [contextMenu, rawLines, updateLineWithHistory, clearContextMenu]);
+  }, [contextMenu, rawLines, setLineWithHistory, clearContextMenu]);
 
   const handleAddLine = useCallback(
     (position: "above" | "below") => {
