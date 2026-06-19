@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { LineRow } from "@/views/timeline/line-row";
 import { setBackground } from "@/domain/line/background";
 import { bgBounds, mainBounds } from "@/domain/line/bounds";
+import { getEffectiveLines } from "@/domain/line/effective-words";
 import { reconcileLine } from "@/domain/line/model";
 import { isLineSynced } from "@/domain/voice/predicates";
 import { bgSource, bgText, bgVoice, bgWords, lineText } from "@/domain/line/voices";
@@ -204,11 +205,14 @@ describe("LineRow · place line keeps linked sibling background", () => {
   });
 });
 
-// Task 8.2: the background lane renders three timing states. An untimed bg shows
-// a Place button that line-syncs it; a line-synced bg renders a single bar (no
-// word blocks); a word-synced bg keeps its WordTrack word blocks. The Place
-// write is per-instance and must not touch a linked sibling's background.
-describe("LineRow · background lane three timing states", () => {
+// The background lane mirrors the main lane. An untimed bg shows a Place button
+// that line-syncs it; a line-synced bg renders as a single WordTrack block,
+// identical to a line-synced main (no bespoke bar); a word-synced bg keeps its
+// WordTrack word blocks. The Place write is per-instance and must not touch a
+// linked sibling's background. LineRow receives effective lines in production
+// (the timeline runs getEffectiveLines upstream), so the line-synced cases pass
+// their input through getEffectiveLines to match that data flow.
+describe("LineRow · background lane timing states", () => {
   function getLine(id: string) {
     const line = useProjectStore.getState().lines.find((l) => l.id === id);
     if (!line) throw new Error(`line ${id} not found`);
@@ -247,26 +251,40 @@ describe("LineRow · background lane three timing states", () => {
     expect(bgSource(getLine("l1"))).toBe("manual");
   });
 
-  it("renders a single bar for a line-synced background and no bg word blocks", async () => {
+  it("renders a line-synced background as one bg WordTrack block and no bespoke bar", async () => {
     const main = createLine({ id: "l1", text: "main here", words: [createWord({ text: "main", begin: 0, end: 1 })] });
-    const line = setBackground(main, { text: "ooh ooh", begin: 3, end: 5, source: "manual" });
-    useProjectStore.setState({ lines: [line] });
+    const rawLine = setBackground(main, { text: "ooh ooh", begin: 3, end: 5, source: "manual" });
+    useProjectStore.setState({ lines: [rawLine] });
+    const line = getEffectiveLines([rawLine])[0];
 
     const screen = await render(
       <LineRow line={line} lineIndex={0} duration={30} onUpdateWord={() => {}} onUpdateBgWord={() => {}} />,
       { dndContext: true },
     );
 
-    const bars = screen.container.querySelectorAll("[data-testid='bg-line-bar']");
-    expect(bars.length).toBe(1);
-    const bar = bars[0] as HTMLElement;
-    const zoom = useTimelineStore.getState().zoom;
-    expect(bar.style.left).toBe(`${3 * zoom}px`);
-    expect(bar.style.width).toBe(`${(5 - 3) * zoom}px`);
-    expect(bar.textContent).toContain("ooh ooh");
+    expect(screen.container.querySelectorAll("[data-testid='bg-line-bar']").length).toBe(0);
+    // one main word block plus one synthesized bg word block, both real WordTrack blocks
+    expect(screen.container.querySelectorAll("[data-word-block]").length).toBe(2);
 
     expect(bgBounds(getLine("l1"))).toEqual({ begin: 3, end: 5 });
     expect(bgWords(getLine("l1"))).toBeUndefined();
+  });
+
+  it("renders a line-synced bg block as the same element type as a line-synced main block", async () => {
+    const rawMain = createLine({ id: "lm", text: "main here", begin: 0, end: 2 });
+    const rawWithBg = setBackground(rawMain, { text: "ooh", begin: 3, end: 5, source: "manual" });
+    useProjectStore.setState({ lines: [rawWithBg] });
+    const line = getEffectiveLines([rawWithBg])[0];
+
+    const screen = await render(
+      <LineRow line={line} lineIndex={0} duration={30} onUpdateWord={() => {}} onUpdateBgWord={() => {}} />,
+      { dndContext: true },
+    );
+
+    const blocks = Array.from(screen.container.querySelectorAll<HTMLElement>("[data-word-block]"));
+    expect(blocks.length).toBe(2);
+    expect(blocks[0].tagName).toBe(blocks[1].tagName);
+    expect(screen.container.querySelectorAll("[data-testid='bg-line-bar']").length).toBe(0);
   });
 
   it("keeps rendering word blocks for a word-synced background (regression guard)", async () => {

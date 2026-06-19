@@ -73,29 +73,44 @@ describe("getEffectiveLines", () => {
   });
 });
 
-// -- background preservation through the line-synced-main conversion ----------
+// -- background conversion through getEffectiveLines --------------------------
 
-describe("getEffectiveLines: background preservation", () => {
-  it("keeps a line-synced background line-synced while converting a line-synced main", () => {
+// behavior changed: line-synced bg now renders as a single effective word,
+// symmetric with main (it no longer stays line-synced for a bespoke bar). The
+// raw store line is untouched; only the rendered/effective view converts.
+describe("getEffectiveLines: background conversion", () => {
+  it("converts a line-synced background into a single effective bg word, mirroring main", () => {
     const input = setBackground(line({ id: "a", text: "Main", begin: 1, end: 4 }), {
       text: "Oooh",
       begin: 1.5,
       end: 3.5,
       source: "manual",
     });
-    const originalBgBounds = bgBounds(input);
 
     const out = getEffectiveLines([input])[0];
 
-    expect(mainWords(out)?.length ?? 0).toBeGreaterThanOrEqual(1);
     expect(isWordSynced(mainVoice(out))).toBe(true);
+    expect(mainWords(out)).toEqual([{ text: "Main", begin: 1, end: 4 }]);
 
-    expect(bgWords(out)).toBeUndefined();
-    expect(bgBounds(out)).toEqual(originalBgBounds);
+    expect(bgWords(out)).toEqual([{ text: "Oooh", begin: 1.5, end: 3.5 }]);
+    expect(bgBounds(out)).toEqual({ begin: 1.5, end: 3.5 });
     expect(bgText(out)).toBe("Oooh");
     const bg = bgVoice(out);
     expect(bg).not.toBeNull();
-    if (bg !== null) expect(isLineSynced(bg)).toBe(true);
+    if (bg !== null) expect(isWordSynced(bg)).toBe(true);
+  });
+
+  it("strips split characters from the synthesized bg word text", () => {
+    const input = setBackground(line({ id: "a", text: "Main", begin: 1, end: 4 }), {
+      text: "Oo|oh",
+      begin: 1.5,
+      end: 3.5,
+      source: "manual",
+    });
+
+    const out = getEffectiveLines([input])[0];
+
+    expect(bgWords(out)).toEqual([{ text: "Oooh", begin: 1.5, end: 3.5 }]);
   });
 
   it("keeps a word-synced background word-synced verbatim", () => {
@@ -132,7 +147,7 @@ describe("getEffectiveLines: background preservation", () => {
     expect(bgText(out)).toBe("Oooh");
   });
 
-  it("returns a word-synced-main line with a line-synced background verbatim", () => {
+  it("converts a line-synced background even when the main is already word-synced", () => {
     const words = [{ text: "Main", begin: 1, end: 4 }];
     const input = setBackground(line({ id: "a", text: "Main", words }), {
       text: "Oooh",
@@ -143,9 +158,27 @@ describe("getEffectiveLines: background preservation", () => {
 
     const out = getEffectiveLines([input])[0];
 
-    expect(out).toBe(input);
-    expect(bgWords(out)).toBeUndefined();
+    expect(isWordSynced(mainVoice(out))).toBe(true);
+    expect(mainWords(out)).toEqual(words);
+    expect(bgWords(out)).toEqual([{ text: "Oooh", begin: 1.5, end: 3.5 }]);
     expect(bgBounds(out)).toEqual({ begin: 1.5, end: 3.5 });
+    const bg = bgVoice(out);
+    expect(bg).not.toBeNull();
+    if (bg !== null) expect(isWordSynced(bg)).toBe(true);
+  });
+
+  it("leaves a fully word-synced line (both voices word-synced) untouched by reference", () => {
+    const words = [{ text: "Main", begin: 1, end: 4 }];
+    const bgWordsArr = [{ text: "Oooh", begin: 1.5, end: 3.5 }];
+    const input = setBackground(line({ id: "a", text: "Main", words }), {
+      text: "Oooh",
+      words: bgWordsArr,
+      source: "manual",
+    });
+
+    const out = getEffectiveLines([input])[0];
+
+    expect(out).toBe(input);
   });
 
   it("produces no background key when the line has no background", () => {

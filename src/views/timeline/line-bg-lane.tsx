@@ -1,7 +1,6 @@
 import { useAudioStore } from "@/stores/audio";
 import { useProjectStore } from "@/stores/project";
 import { backgroundFields } from "@/domain/line/background";
-import { bgBounds } from "@/domain/line/bounds";
 import type { LyricLine } from "@/domain/line/model";
 import { placeVoice } from "@/domain/line/place-voice";
 import { bgText, bgWords } from "@/domain/line/voices";
@@ -80,12 +79,9 @@ const LineBgLane: React.FC<LineBgLaneProps> = ({
   dragShiftPx,
   onUpdateBgWord,
 }) => {
-  const zoom = useTimelineStore((s) => s.zoom);
   const bg = bgWords(line);
   const bgTextValue = bgText(line);
-  const bgWindow = bgBounds(line);
   const hasBgWords = bg && bg.length > 0;
-  const isLineSyncedBg = bgWindow !== null && !hasBgWords;
   const laneShift = dragShiftPx !== 0 ? `translateX(${dragShiftPx}px)` : undefined;
 
   const { setNodeRef: setBgDropRef, isOver: isOverBg } = useDroppable({
@@ -113,45 +109,6 @@ const LineBgLane: React.FC<LineBgLaneProps> = ({
           height={rowHeight}
           onUpdateWord={onUpdateBgWord}
         />
-      </div>
-    );
-  }
-
-  if (isLineSyncedBg) {
-    const labelText = bgTextValue ?? "";
-    return (
-      <div
-        ref={setBgDropRef}
-        className={cn(
-          "relative opacity-70 transition-colors border-t border-composer-border/50",
-          isOverBg ? "bg-composer-accent/10" : "bg-composer-bg-elevated/25",
-        )}
-        style={{ height: rowHeight, transform: laneShift }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-          const time = (e.clientX - rect.left) / useTimelineStore.getState().zoom;
-          useTimelineStore.getState().setContextMenu({
-            x: e.clientX,
-            y: e.clientY,
-            target: { kind: "track", lineId: line.id, lineIndex, time, type: "bg" },
-          });
-        }}
-      >
-        <div
-          data-testid="bg-line-bar"
-          className="absolute top-1 bottom-1 flex items-center px-2 rounded text-[10px] font-medium text-composer-bg overflow-hidden select-text"
-          style={{
-            left: bgWindow.begin * zoom,
-            width: (bgWindow.end - bgWindow.begin) * zoom,
-            background: color,
-          }}
-        >
-          <span className="truncate">
-            {labelText.slice(0, BG_BAR_TEXT_LIMIT)}
-            {labelText.length > BG_BAR_TEXT_LIMIT ? "..." : ""}
-          </span>
-        </div>
       </div>
     );
   }
