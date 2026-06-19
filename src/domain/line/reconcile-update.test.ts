@@ -73,6 +73,18 @@ describe("reconcileUpdate · background-touching and other-granularity updates",
     expect(bgWords(next)).toBeUndefined();
   });
 
+  it("uses the flat result when the update sets backgroundWords (no line-synced restore)", () => {
+    const prev = lineSyncedBgLine();
+    const backgroundWords = [
+      { text: "ooh ", begin: 0, end: 1 },
+      { text: "ahh", begin: 1, end: 2 },
+    ];
+    const next = reconcileUpdate(prev, { backgroundWords });
+    expect(bgWords(next)).toEqual(backgroundWords);
+    expect(bgBounds(next)).not.toEqual({ begin: 3, end: 7 });
+    expect(bgBounds(next)).toEqual({ begin: 0, end: 2 });
+  });
+
   it("clears the background when the update clears backgroundText", () => {
     const prev = lineSyncedBgLine();
     const next = reconcileUpdate(prev, { backgroundText: undefined, backgroundTextSource: undefined });
