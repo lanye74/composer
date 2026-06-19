@@ -146,21 +146,26 @@ describe("parseLyricsFile - TTML background granularity (A/B/C)", () => {
       const [l1, l2] = result.lines;
 
       const l1Bg = bgWords(l1)!;
-      expect(l1Bg).toBeDefined();
       expect(l1Bg).toHaveLength(2);
       expect(l1Bg[0].begin).toBeCloseTo(33.5, 3);
       expect(l1Bg[0].end).toBeCloseTo(34.0, 3);
       expect(l1Bg[1].begin).toBeCloseTo(34.0, 3);
       expect(l1Bg[1].end).toBeCloseTo(34.5, 3);
+      // bounds come from the inner words, not the x-bg container's own begin/end
+      expect(bgBounds(l1)).toEqual({ begin: 33.5, end: 34.5 });
+      expect(bgText(l1)).toBe(l1Bg.map((w) => w.text).join(""));
+      expect(bgText(l1)).toBe("(ooh yeah) ");
       expect(bgSource(l1)).toBe("manual");
 
       const l2Bg = bgWords(l2)!;
-      expect(l2Bg).toBeDefined();
       expect(l2Bg).toHaveLength(2);
       expect(l2Bg[0].begin).toBeCloseTo(38.0, 3);
       expect(l2Bg[0].end).toBeCloseTo(39.0, 3);
       expect(l2Bg[1].begin).toBeCloseTo(39.0, 3);
       expect(l2Bg[1].end).toBeCloseTo(40.0, 3);
+      expect(bgBounds(l2)).toEqual({ begin: 38, end: 40 });
+      expect(bgText(l2)).toBe(l2Bg.map((w) => w.text).join(""));
+      expect(bgText(l2)).toBe("(burn it) ");
       expect(bgSource(l2)).toBe("manual");
     });
   });
@@ -206,7 +211,6 @@ describe("parseLyricsFile - TTML background granularity (A/B/C)", () => {
       const l1 = result.lines[0];
 
       const words = bgWords(l1)!;
-      expect(words).toBeDefined();
       expect(words.length).toBeGreaterThan(0);
       expect(words[0].begin).toBe(3);
       expect(words[words.length - 1].end).toBe(5);
@@ -250,7 +254,6 @@ describe("parseLyricsFile - TTML background granularity (A/B/C)", () => {
 
       expect(mainWords(l2)).toBeUndefined();
       const words = bgWords(l2)!;
-      expect(words).toBeDefined();
       expect(words).toHaveLength(2);
       expect(words[0].begin).toBeCloseTo(7, 3);
       expect(words[0].end).toBeCloseTo(8, 3);
