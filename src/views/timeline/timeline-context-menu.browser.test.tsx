@@ -8,6 +8,7 @@ import { isWordSynced as isVoiceWordSynced } from "@/domain/voice/predicates";
 import { TimelineContextMenu } from "@/views/timeline/timeline-context-menu";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import { useAudioStore } from "@/stores/audio";
+import { useConfirmStore } from "@/stores/confirm-store";
 import { useProjectStore } from "@/stores/project";
 import { createLine, createWord } from "@/test/factories";
 import { render } from "@/test/render";
@@ -505,5 +506,18 @@ describe("TimelineContextMenu · Remove background (gutter only)", () => {
     openWordContextMenu("l1");
     await render(<TimelineContextMenu />);
     expect(findButton(/Remove background/i)).toBeUndefined();
+  });
+
+  it("opens the confirm on click and clears the bg when accepted", async () => {
+    useProjectStore.setState({ lines: [createLine({ id: "l1", text: "verse", backgroundText: "ooh" })] });
+    openGutterContextMenu("l1");
+    await render(<TimelineContextMenu />);
+
+    findButton(/Remove background/i)?.click();
+    expect(useConfirmStore.getState().isOpen).toBe(true);
+
+    useConfirmStore.getState().resolveAndClose(true, false);
+
+    await expect.poll(() => bgVoice(useProjectStore.getState().lines[0])).toBeNull();
   });
 });
