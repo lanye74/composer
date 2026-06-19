@@ -51,7 +51,9 @@ const SyncLineButton: React.FC<{ lineId: string }> = ({ lineId }) => {
       if (!line) return;
       const currentTime = useAudioStore.getState().currentTime;
       const wordDuration = useSettingsStore.getState().defaultWordDuration;
-      useProjectStore.getState().setLineWithHistory(lineId, placeVoice(line, "main", currentTime, wordDuration));
+      useProjectStore.getState().setLineWithHistory(lineId, placeVoice(line, "main", currentTime, wordDuration), {
+        propagateToSiblings: false,
+      });
     },
     [lineId],
   );

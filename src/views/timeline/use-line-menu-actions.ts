@@ -30,7 +30,7 @@ function useLineMenuActions(targets: ContextMenuTargets, clearContextMenu: () =>
     const line = rawLines.find((l) => l.id === lineId);
     if (!line) return;
     const wordDuration = useSettingsStore.getState().defaultWordDuration;
-    setLineWithHistory(lineId, placeVoice(line, "main", time, wordDuration));
+    setLineWithHistory(lineId, placeVoice(line, "main", time, wordDuration), { propagateToSiblings: false });
     clearContextMenu();
   }, [contextMenu, rawLines, setLineWithHistory, clearContextMenu]);
 

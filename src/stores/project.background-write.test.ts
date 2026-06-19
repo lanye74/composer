@@ -5,9 +5,11 @@ import type { LinkGroup } from "@/domain/group/template";
 import { bgBounds, mainBounds } from "@/domain/line/bounds";
 import { type LooseLine, reconcileLine } from "@/domain/line/model";
 import { applyBackground } from "@/domain/line/background";
+import { placeVoice } from "@/domain/line/place-voice";
 import { bgVoice, bgWords, lineText, mainWords } from "@/domain/line/voices";
 import { isLineSynced, isWordSynced } from "@/domain/voice/predicates";
 import { useProjectStore } from "@/stores/project";
+import { splitIntoWordsWithMeta } from "@/utils/sync-helpers";
 import { beforeEach, describe, expect, it } from "vitest";
 
 // Store half of the #122 fix: a nested-aware background write path that persists
@@ -855,5 +857,101 @@ describe("project store · applyLineBackground · invariants", () => {
 
     expect(bgBounds(replacement)).toEqual(beforeBounds);
     expect(mainBounds(replacement)).toEqual({ begin: 2, end: 6 });
+  });
+});
+
+// Regression lock for the Task 8.1 placeVoice funnel: placing one instance's
+// MAIN voice ("place line here" in the timeline) is a pure per-instance timing
+// write. It must NOT propagate to linked siblings, otherwise every sibling
+// instance's background gets cleared or re-resolved. Both UI call sites place
+// through setLineWithHistory with { propagateToSiblings: false }; these tests
+// reproduce that exact production call convention with real store actions.
+describe("project store · placeVoice main · leaves linked siblings untouched", () => {
+  const PLACE_TIME = 5;
+  const PLACE_DUR = 0.4;
+
+  // Background text is consistent with its words (join of the word texts) so
+  // commitHistory's derive-text pass is a no-op: the only thing that can mutate
+  // the sibling here is sibling propagation, which is exactly what we lock out.
+  function seedLinkedPair() {
+    seed(
+      [
+        {
+          id: "a0",
+          text: "I love you",
+          agentId: "v1",
+          groupId: "g1",
+          instanceIdx: 0,
+          templateLineIdx: 0,
+          backgroundText: "ooh ooh",
+          backgroundWords: [
+            { text: "ooh ", begin: 0, end: 0.5 },
+            { text: "ooh", begin: 0.5, end: 1 },
+          ],
+          backgroundTextSource: "manual",
+        },
+        {
+          id: "a1",
+          text: "I love you",
+          agentId: "v1",
+          groupId: "g1",
+          instanceIdx: 1,
+          templateLineIdx: 0,
+          backgroundText: "ooh ooh",
+          backgroundWords: [
+            { text: "ooh ", begin: 20, end: 20.5 },
+            { text: "ooh", begin: 20.5, end: 21 },
+          ],
+          backgroundTextSource: "manual",
+        },
+      ],
+      [seedGroup("g1")],
+    );
+  }
+
+  it("regression: placing one instance's main voice does not clobber a linked sibling's background", () => {
+    seedLinkedPair();
+    const siblingBgBefore = bgVoice(getLine("a1"));
+    expect(siblingBgBefore).not.toBeNull();
+
+    const target = getLine("a0");
+    useProjectStore
+      .getState()
+      .setLineWithHistory("a0", placeVoice(target, "main", PLACE_TIME, PLACE_DUR), { propagateToSiblings: false });
+
+    expect(bgVoice(getLine("a1"))).toEqual(siblingBgBefore);
+    expect(bgWords(getLine("a1"))).toEqual([
+      { text: "ooh ", begin: 20, end: 20.5 },
+      { text: "ooh", begin: 20.5, end: 21 },
+    ]);
+  });
+
+  it("places the target line-synced at [time, time + max(wordCount,1)*dur]", () => {
+    seedLinkedPair();
+    const target = getLine("a0");
+    const wordCount = splitIntoWordsWithMeta(lineText(target)).parts.length;
+
+    useProjectStore
+      .getState()
+      .setLineWithHistory("a0", placeVoice(target, "main", PLACE_TIME, PLACE_DUR), { propagateToSiblings: false });
+
+    const placed = getLine("a0");
+    expect(isLineSynced(placed.main)).toBe(true);
+    expect(mainBounds(placed)).toEqual({
+      begin: PLACE_TIME,
+      end: PLACE_TIME + Math.max(wordCount, 1) * PLACE_DUR,
+    });
+  });
+
+  it("leaves the sibling reference-equal (no rewrite at all)", () => {
+    seedLinkedPair();
+    const a1Before = getLine("a1");
+
+    const target = getLine("a0");
+    useProjectStore
+      .getState()
+      .setLineWithHistory("a0", placeVoice(target, "main", PLACE_TIME, PLACE_DUR), { propagateToSiblings: false });
+
+    expect(getLine("a1")).toBe(a1Before);
   });
 });
