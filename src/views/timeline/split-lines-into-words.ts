@@ -21,6 +21,22 @@ interface LineWordsUpdate {
 
 // -- Pure computation ----------------------------------------------------------
 
+// Resolves which line ids a split operates on, given the current word selection,
+// the voice type of the context-menu target, and the target line id. The target
+// set is the line ids of same-type selected words; when that set already contains
+// the target (and is non-empty) it wins, otherwise the split is scoped to the
+// target line alone. Shared by the menu count site and the menu action site so the
+// displayed "Split N ..." count can never diverge from what actually splits.
+function splitTargetLineIds(
+  selectedWords: WordSelection[],
+  type: WordSelection["type"],
+  targetLineId: string,
+): string[] {
+  const sameVoiceLineIds = selectedWords.flatMap((w) => (w.type === type ? [w.lineId] : []));
+  const selectedLineIds = new Set(sameVoiceLineIds);
+  return selectedLineIds.has(targetLineId) && selectedLineIds.size > 0 ? [...selectedLineIds] : [targetLineId];
+}
+
 function mainUpdate(realLine: LyricLine): Partial<LooseLine> | null {
   if (!isLineSynced(realLine)) return null;
   const converted = convertLineToWord(toFlat(realLine));
@@ -109,5 +125,5 @@ function splitVoiceIntoWords(targetLineIds: Iterable<string>, effectiveLines: Ly
 
 // -- Exports -------------------------------------------------------------------
 
-export { computeSplitIntoWordsUpdates, computeSplitSelections, splitVoiceIntoWords };
+export { computeSplitIntoWordsUpdates, computeSplitSelections, splitTargetLineIds, splitVoiceIntoWords };
 export type { SplitVoice };

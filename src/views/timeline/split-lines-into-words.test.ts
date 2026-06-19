@@ -6,12 +6,18 @@ import { bgBounds, mainBounds } from "@/domain/line/bounds";
 import { getEffectiveLines } from "@/domain/line/effective-words";
 import { reconcileLine, type LyricLine } from "@/domain/line/model";
 import { isLineSynced } from "@/domain/line/predicates";
-import { bgVoice, bgWords, mainWords } from "@/domain/line/voices";
+import { bgVoice, bgWords, mainVoice, mainWords } from "@/domain/line/voices";
+import type { WordSelection } from "@/domain/selection/model";
 import { isLineSynced as isVoiceLineSynced, isWordSynced as isVoiceWordSynced } from "@/domain/voice/predicates";
 import { useProjectStore } from "@/stores/project";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import { beforeEach, describe, expect, it } from "vitest";
-import { computeSplitIntoWordsUpdates, computeSplitSelections, splitVoiceIntoWords } from "./split-lines-into-words";
+import {
+  computeSplitIntoWordsUpdates,
+  computeSplitSelections,
+  splitTargetLineIds,
+  splitVoiceIntoWords,
+} from "./split-lines-into-words";
 
 const lineSynced: LyricLine = reconcileLine({ id: "L1", text: "one two three", agentId: "v1", begin: 1, end: 4 });
 const wordSynced: LyricLine = reconcileLine({
@@ -135,6 +141,39 @@ describe("computeSplitSelections", () => {
   });
 });
 
+describe("splitTargetLineIds", () => {
+  const sel = (lineId: string, type: WordSelection["type"], wordIndex = 0): WordSelection => ({
+    lineId,
+    lineIndex: 0,
+    wordIndex,
+    type,
+  });
+
+  it("falls back to just the target when it is absent from the selection", () => {
+    const selection = [sel("L1", "word"), sel("L2", "word")];
+    expect(splitTargetLineIds(selection, "word", "L9")).toEqual(["L9"]);
+  });
+
+  it("returns every same-type selected line id when the target is among them", () => {
+    const selection = [sel("L1", "word"), sel("L2", "word", 1), sel("L3", "word")];
+    expect(splitTargetLineIds(selection, "word", "L2")).toEqual(["L1", "L2", "L3"]);
+  });
+
+  it("excludes selections of the other voice type", () => {
+    const selection = [sel("B1", "bg"), sel("B2", "bg")];
+    expect(splitTargetLineIds(selection, "word", "L1")).toEqual(["L1"]);
+  });
+
+  it("dedupes repeated line ids from multi-word selections", () => {
+    const selection = [sel("L1", "word", 0), sel("L1", "word", 1), sel("L2", "word", 0)];
+    expect(splitTargetLineIds(selection, "word", "L1")).toEqual(["L1", "L2"]);
+  });
+
+  it("returns just the target for an empty selection", () => {
+    expect(splitTargetLineIds([], "word", "L1")).toEqual(["L1"]);
+  });
+});
+
 describe("splitVoiceIntoWords · main (store-mutating)", () => {
   beforeEach(() => {
     useProjectStore.getState().reset();
@@ -229,7 +268,7 @@ describe("splitVoiceIntoWords · bg (store-mutating)", () => {
     splitVoiceIntoWords(["M1"], effective, "bg");
 
     const after = useProjectStore.getState().lines[0];
-    expect(isVoiceLineSynced(after.main)).toBe(true);
+    expect(isVoiceLineSynced(mainVoice(after))).toBe(true);
     expect(useTimelineStore.getState().selectedWords).toHaveLength(0);
   });
 });

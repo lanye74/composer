@@ -9,7 +9,7 @@ import { hasIntraGroupGap } from "@/domain/word/syllable-groups";
 import { fieldWords } from "@/stores/project/lines-slice-helpers";
 import { useProjectStore } from "@/stores/project";
 import { createGroupFromSelection, fillSelectionGaps } from "@/views/timeline/group-ops";
-import type { SplitVoice } from "@/views/timeline/split-lines-into-words";
+import { splitTargetLineIds, type SplitVoice } from "@/views/timeline/split-lines-into-words";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import { useMemo } from "react";
 
@@ -139,10 +139,7 @@ function useContextMenuTargets() {
     const target = contextMenu.target;
     const voice: SplitVoice = target.type === "word" ? "main" : "bg";
 
-    const sameVoiceLineIds = selectedWords.flatMap((w) => (w.type === target.type ? [w.lineId] : []));
-    const selectedLineIds = new Set(sameVoiceLineIds);
-    const targetIds =
-      selectedLineIds.has(target.lineId) && selectedLineIds.size > 0 ? [...selectedLineIds] : [target.lineId];
+    const targetIds = splitTargetLineIds(selectedWords, target.type, target.lineId);
 
     const rawLinesById = new Map(rawLines.map((l) => [l.id, l] as const));
     const lineSyncedIds = targetIds.filter((id) => {

@@ -3,7 +3,7 @@ import { placeVoice } from "@/domain/line/place-voice";
 import { useProjectStore } from "@/stores/project";
 import { useSettingsStore } from "@/stores/settings";
 import { showGroupActionToast } from "@/utils/group-toast";
-import { splitVoiceIntoWords } from "@/views/timeline/split-lines-into-words";
+import { splitTargetLineIds, splitVoiceIntoWords } from "@/views/timeline/split-lines-into-words";
 import { useTimelineStore } from "@/views/timeline/timeline-store";
 import type { useContextMenuTargets } from "@/views/timeline/use-context-menu-targets";
 import { useCallback } from "react";
@@ -99,9 +99,7 @@ function useLineMenuActions(targets: ContextMenuTargets, clearContextMenu: () =>
     const { lineId, type } = contextMenu.target;
     const { voice } = splitIntoWordsInfo;
 
-    const sameVoiceLineIds = selectedWords.flatMap((w) => (w.type === type ? [w.lineId] : []));
-    const selectedLineIds = new Set(sameVoiceLineIds);
-    const targetIds = selectedLineIds.has(lineId) && selectedLineIds.size > 0 ? [...selectedLineIds] : [lineId];
+    const targetIds = splitTargetLineIds(selectedWords, type, lineId);
 
     splitVoiceIntoWords(targetIds, lines, voice);
     clearContextMenu();
