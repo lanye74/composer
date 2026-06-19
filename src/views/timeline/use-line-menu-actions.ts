@@ -30,6 +30,8 @@ function useLineMenuActions(targets: ContextMenuTargets, clearContextMenu: () =>
     const line = rawLines.find((l) => l.id === lineId);
     if (!line) return;
     const wordDuration = useSettingsStore.getState().defaultWordDuration;
+    // Placing one instance is a per-instance timing write; propagating would
+    // clear or re-resolve linked siblings' backgrounds (regression vs the old path).
     setLineWithHistory(lineId, placeVoice(line, "main", time, wordDuration), { propagateToSiblings: false });
     clearContextMenu();
   }, [contextMenu, rawLines, setLineWithHistory, clearContextMenu]);

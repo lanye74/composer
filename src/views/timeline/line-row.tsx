@@ -51,6 +51,8 @@ const SyncLineButton: React.FC<{ lineId: string }> = ({ lineId }) => {
       if (!line) return;
       const currentTime = useAudioStore.getState().currentTime;
       const wordDuration = useSettingsStore.getState().defaultWordDuration;
+      // Placing one instance is a per-instance timing write; propagating would
+      // clear or re-resolve linked siblings' backgrounds (regression vs the old path).
       useProjectStore.getState().setLineWithHistory(lineId, placeVoice(line, "main", currentTime, wordDuration), {
         propagateToSiblings: false,
       });
