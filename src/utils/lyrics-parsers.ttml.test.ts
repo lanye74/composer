@@ -1,6 +1,14 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { bgSource, bgText, bgWords, lineText, mainWords } from "@/domain/line/voices";
+import { bgBounds, mainBounds } from "@/domain/line/bounds";
+import { bgSource, bgText, bgVoice, bgWords, lineText, mainWords } from "@/domain/line/voices";
+import { isLineSynced, isWordSynced } from "@/domain/voice/predicates";
 import { parseLyricsFile } from "@/utils/lyrics-parsers";
+
+const FIXTURE_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../test/fixtures/ttml");
+const ttmlFixture = (name: string) => readFileSync(resolve(FIXTURE_DIR, `${name}.ttml`), "utf-8");
 
 describe("parseLyricsFile - TTML with undeclared namespaces (AMLL)", () => {
   it("parses an AMLL export that uses <amll:meta> without declaring xmlns:amll", () => {
@@ -124,5 +132,132 @@ describe("parseLyricsFile - TTML background provenance", () => {
     const result = parseLyricsFile("song.ttml", content);
     expect(bgText(result.lines[0])).toBeUndefined();
     expect(bgSource(result.lines[0])).toBeUndefined();
+  });
+});
+
+describe("parseLyricsFile - TTML background granularity (A/B/C)", () => {
+  // Case A: x-bg with 2+ timed inner spans stays WORD-SYNCED verbatim. A
+  // multi-span authored background is never downgraded to line-synced.
+  describe("case A: word-synced x-bg (2+ timed spans)", () => {
+    it("keeps both lines' backgrounds word-synced verbatim", () => {
+      const result = parseLyricsFile("bg-word-synced.ttml", ttmlFixture("bg-word-synced"));
+      expect(result.lines).toHaveLength(2);
+
+      const [l1, l2] = result.lines;
+
+      const l1Bg = bgWords(l1)!;
+      expect(l1Bg).toBeDefined();
+      expect(l1Bg).toHaveLength(2);
+      expect(l1Bg[0].begin).toBeCloseTo(33.5, 3);
+      expect(l1Bg[0].end).toBeCloseTo(34.0, 3);
+      expect(l1Bg[1].begin).toBeCloseTo(34.0, 3);
+      expect(l1Bg[1].end).toBeCloseTo(34.5, 3);
+      expect(bgSource(l1)).toBe("manual");
+
+      const l2Bg = bgWords(l2)!;
+      expect(l2Bg).toBeDefined();
+      expect(l2Bg).toHaveLength(2);
+      expect(l2Bg[0].begin).toBeCloseTo(38.0, 3);
+      expect(l2Bg[0].end).toBeCloseTo(39.0, 3);
+      expect(l2Bg[1].begin).toBeCloseTo(39.0, 3);
+      expect(l2Bg[1].end).toBeCloseTo(40.0, 3);
+      expect(bgSource(l2)).toBe("manual");
+    });
+  });
+
+  // Case B (GitHub #122 regression anchor): x-bg with exactly ONE timed inner
+  // span is LINE-SYNCED, carrying that span's begin/end and text, NOT a
+  // one-element words array.
+  describe("case B: single-span x-bg is line-synced (#122 regression)", () => {
+    it("L1 single-span x-bg becomes a line-synced background", () => {
+      const result = parseLyricsFile("bg-line-synced.ttml", ttmlFixture("bg-line-synced"));
+      const l1 = result.lines[0];
+
+      expect(mainWords(l1)).toBeUndefined();
+      expect(bgWords(l1)).toBeUndefined();
+      expect(bgBounds(l1)).toEqual({ begin: 19, end: 21 });
+      expect(bgText(l1)).toBe("(ooh ooh)");
+      const voice = bgVoice(l1)!;
+      expect(voice).not.toBeNull();
+      expect(isLineSynced(voice)).toBe(true);
+      expect(bgSource(l1)).toBe("manual");
+    });
+
+    it("L2 single-span x-bg becomes a line-synced background", () => {
+      const result = parseLyricsFile("bg-line-synced.ttml", ttmlFixture("bg-line-synced"));
+      const l2 = result.lines[1];
+
+      expect(mainWords(l2)).toBeUndefined();
+      expect(bgWords(l2)).toBeUndefined();
+      expect(bgBounds(l2)).toEqual({ begin: 23, end: 24.5 });
+      expect(bgText(l2)).toBe("(yeah yeah)");
+      const voice = bgVoice(l2)!;
+      expect(voice).not.toBeNull();
+      expect(isLineSynced(voice)).toBe(true);
+      expect(bgSource(l2)).toBe("manual");
+    });
+  });
+
+  // Case C: x-bg with raw text and NO timed inner spans is untimed, then
+  // resolved against the main voice's granularity over its second half.
+  describe("case C: untimed x-bg text resolved against main", () => {
+    it("L1 untimed text over a word-synced main distributes over the second half", () => {
+      const result = parseLyricsFile("bg-untimed-text.ttml", ttmlFixture("bg-untimed-text"));
+      const l1 = result.lines[0];
+
+      const words = bgWords(l1)!;
+      expect(words).toBeDefined();
+      expect(words.length).toBeGreaterThan(0);
+      expect(words[0].begin).toBe(3);
+      expect(words[words.length - 1].end).toBe(5);
+      expect(bgText(l1)).toContain("ooh");
+      expect(bgText(l1)).toContain("yeah");
+      expect(bgSource(l1)).toBe("manual");
+    });
+
+    it("L2 untimed text over a line-synced main becomes line-synced over the second half", () => {
+      const result = parseLyricsFile("bg-untimed-text.ttml", ttmlFixture("bg-untimed-text"));
+      const l2 = result.lines[1];
+
+      expect(mainBounds(l2)).toEqual({ begin: 6, end: 10 });
+      expect(bgWords(l2)).toBeUndefined();
+      expect(bgBounds(l2)).toEqual({ begin: 8, end: 10 });
+      expect(bgText(l2)).toBe("(backing)");
+      expect(bgSource(l2)).toBe("manual");
+    });
+  });
+
+  // Mixed: authored granularity round-trips with no "correction". A line-synced
+  // bg over a word-synced main stays line-synced; a word-synced bg over a
+  // line-synced main stays word-synced.
+  describe("mixed granularity: no correction on import", () => {
+    it("L1 single-span line-synced bg stays line-synced even though main is word-synced", () => {
+      const result = parseLyricsFile("bg-mixed-granularity.ttml", ttmlFixture("bg-mixed-granularity"));
+      const l1 = result.lines[0];
+
+      expect(mainWords(l1)).toBeDefined();
+      expect(mainWords(l1)).toHaveLength(2);
+      expect(bgWords(l1)).toBeUndefined();
+      expect(bgBounds(l1)).toEqual({ begin: 3.5, end: 4.5 });
+      expect(bgText(l1)).toBe("(ahh)");
+      expect(isLineSynced(bgVoice(l1)!)).toBe(true);
+      expect(bgSource(l1)).toBe("manual");
+    });
+
+    it("L2 two-span word-synced bg stays word-synced even though main is line-synced", () => {
+      const result = parseLyricsFile("bg-mixed-granularity.ttml", ttmlFixture("bg-mixed-granularity"));
+      const l2 = result.lines[1];
+
+      expect(mainWords(l2)).toBeUndefined();
+      const words = bgWords(l2)!;
+      expect(words).toBeDefined();
+      expect(words).toHaveLength(2);
+      expect(words[0].begin).toBeCloseTo(7, 3);
+      expect(words[0].end).toBeCloseTo(8, 3);
+      expect(words[1].begin).toBeCloseTo(8, 3);
+      expect(words[1].end).toBeCloseTo(9, 3);
+      expect(isWordSynced(bgVoice(l2)!)).toBe(true);
+      expect(bgSource(l2)).toBe("manual");
+    });
   });
 });
