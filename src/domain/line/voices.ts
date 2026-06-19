@@ -20,8 +20,8 @@ function lineText(line: LyricLine): string {
 
 // Raw word-synced word array of the main voice, or undefined when the main
 // voice is not word-synced. Use this for call sites that need the actual word
-// array (filter, map, length), not the synthesized single word of
-// `effectiveWords`.
+// array (filter, map, length), not the synthesized single word that
+// `effectiveVoiceWords` / `getEffectiveLines` produce for line-synced voices.
 function mainWords(line: LyricLine): WordTiming[] | undefined {
   return "words" in line.main ? line.main.words : undefined;
 }

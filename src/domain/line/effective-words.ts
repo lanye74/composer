@@ -3,13 +3,8 @@ import { reconcileLine, toFlat } from "@/domain/line/model";
 import { bgVoice, mainVoice } from "@/domain/line/voices";
 import { effectiveVoiceWords } from "@/domain/voice/effective-words";
 import { isLineSynced as isLineSyncedVoice } from "@/domain/voice/predicates";
-import type { WordTiming } from "@/domain/word/timing";
 
 // -- Functions ----------------------------------------------------------------
-
-function effectiveWords(line: LyricLine): WordTiming[] {
-  return effectiveVoiceWords(mainVoice(line));
-}
 
 // Render-only transform: converts each voice's line-synced timing into a single
 // effective word so the timeline renders both the main and the background as a
@@ -33,4 +28,4 @@ function getEffectiveLines(lines: LyricLine[]): LyricLine[] {
 
 // -- Exports ------------------------------------------------------------------
 
-export { effectiveWords, getEffectiveLines };
+export { getEffectiveLines };

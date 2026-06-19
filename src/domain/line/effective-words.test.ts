@@ -1,6 +1,6 @@
 import { reconcileLine, type LooseLine, type LyricLine } from "@/domain/line/model";
 import { describe, expect, it } from "vitest";
-import { effectiveWords, getEffectiveLines } from "@/domain/line/effective-words";
+import { getEffectiveLines } from "@/domain/line/effective-words";
 import { bgText, bgVoice, bgWords, mainVoice, mainWords } from "@/domain/line/voices";
 import { bgBounds, mainBounds } from "@/domain/line/bounds";
 import { setBackground } from "@/domain/line/background";
@@ -11,38 +11,6 @@ import { isLineSynced, isWordSynced } from "@/domain/voice/predicates";
 function line(extras: Partial<LooseLine> = {}): LyricLine {
   return reconcileLine({ id: "l1", text: "Hello", agentId: "v1", ...extras });
 }
-
-// -- effectiveWords -----------------------------------------------------------
-
-describe("effectiveWords", () => {
-  it("returns the words array when word-synced", () => {
-    const words = [
-      { text: "Hello ", begin: 0, end: 1 },
-      { text: "world", begin: 1, end: 2 },
-    ];
-    expect(effectiveWords(line({ words }))).toEqual(words);
-  });
-
-  it("returns a single synthetic word covering line-synced begin/end", () => {
-    expect(effectiveWords(line({ text: "Hello world", begin: 3, end: 7 }))).toEqual([
-      { text: "Hello world", begin: 3, end: 7 },
-    ]);
-  });
-
-  it("strips split characters from synthetic word text", () => {
-    expect(effectiveWords(line({ text: "Hel|lo wo|rld", begin: 3, end: 7 }))).toEqual([
-      { text: "Hello world", begin: 3, end: 7 },
-    ]);
-  });
-
-  it("returns empty array when no timing at all", () => {
-    expect(effectiveWords(line())).toEqual([]);
-  });
-
-  it("returns empty array for a word-synced line with an empty words array", () => {
-    expect(effectiveWords(line({ words: [] }))).toEqual([]);
-  });
-});
 
 // -- getEffectiveLines --------------------------------------------------------
 
