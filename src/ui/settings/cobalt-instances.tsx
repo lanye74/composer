@@ -105,11 +105,11 @@ const CobaltInstanceRow: React.FC<{
     >
       <span
         className={cn(
-          "size-3.5 rounded-full border-[1.5px] shrink-0 relative transition-colors",
+          "size-3.5 rounded-full border-[1.5px] shrink-0 flex items-center justify-center transition-colors",
           isSelected ? "border-composer-accent" : "border-composer-text opacity-50",
         )}
       >
-        {isSelected && <span className="absolute inset-[2.5px] rounded-full bg-composer-accent" />}
+        {isSelected && <span className="size-1.5 rounded-full bg-composer-accent" />}
       </span>
       <span className="flex items-center gap-1.5 min-w-0 max-w-[50%]">
         <span className="text-sm font-medium text-composer-text truncate">{instance.label}</span>
