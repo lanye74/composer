@@ -87,15 +87,10 @@ function backgroundFields(params: BackgroundParams): BackgroundFields {
 }
 
 // The coherent all-undefined set, for clear sites where there is no meaningful
-// source to stamp. Clears the line-synced bounds too so a line-synced
-// background is fully removed, not silently rebuilt from surviving bounds.
-const CLEARED_BACKGROUND: BackgroundFields = {
-  backgroundText: undefined,
-  backgroundWords: undefined,
-  backgroundBegin: undefined,
-  backgroundEnd: undefined,
-  backgroundTextSource: undefined,
-};
+// source to stamp. backgroundFields with no text/words yields the fully-cleared
+// shape (line-synced bounds included), so a line-synced background is fully
+// removed, not silently rebuilt from surviving bounds. The source is ignored.
+const CLEARED_BACKGROUND: BackgroundFields = backgroundFields({ source: "manual" });
 
 // Any timeline edit of a line's background words (retime, split, merge, add,
 // delete, drag) is manual curation: a re-paste or re-extraction must not

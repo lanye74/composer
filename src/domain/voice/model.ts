@@ -13,4 +13,4 @@ type BackgroundVoice = Voice & { source?: BackgroundSource };
 
 // -- Exports ------------------------------------------------------------------
 
-export type { Voice, BackgroundVoice, BackgroundSource, UntimedVoice, LineSyncedVoice, WordSyncedVoice };
+export type { Voice, BackgroundVoice, BackgroundSource, LineSyncedVoice, WordSyncedVoice };
