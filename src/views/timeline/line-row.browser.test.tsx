@@ -138,6 +138,40 @@ describe("LineRow", () => {
     await expect.poll(() => bgWords(useProjectStore.getState().lines[0])?.length).toBe(1);
     expect(bgSource(useProjectStore.getState().lines[0])).toBe("manual");
   });
+
+  // Regression: right-clicking the bg drop-zone on a line with no background opened
+  // nothing, because the per-row group-tint overlay (an `absolute inset-0` div) is
+  // positioned and paints above the *static* drop-zone, so it became the hit target
+  // and swallowed the drop-zone's onContextMenu. The main lane and a word-synced bg
+  // WordTrack are `relative`, so they paint above the overlay and were unaffected,
+  // which is why the bug only hit no-bg lines. The overlay is decorative (its tint
+  // child is already pointer-events-none); the wrapper must be too.
+  //
+  // We lock this structurally (the overlay declares pointer-events-none) rather than
+  // behaviorally: the hit test only reproduces inside the timeline's Virtuoso layout
+  // (fixed row height, so the overlay actually covers the drop-zone), and Tailwind
+  // utilities are not applied in the component test harness, so getComputedStyle
+  // cannot observe pointer-events here. A removed class reintroduces the bug and
+  // fails this test.
+  it("keeps every per-row tint overlay declaring pointer-events-none", async () => {
+    const line = createLine({
+      id: "l1",
+      text: "hello world",
+      words: [createWord({ text: "hello", begin: 0, end: 1 })],
+    });
+    useProjectStore.setState({ lines: [line] });
+
+    const screen = await render(
+      <LineRow line={line} lineIndex={0} duration={30} onUpdateWord={() => {}} onUpdateBgWord={() => {}} />,
+      { dndContext: true },
+    );
+
+    const overlays = screen.container.querySelectorAll<HTMLElement>(".absolute.inset-0");
+    expect(overlays.length).toBeGreaterThan(0);
+    for (const overlay of overlays) {
+      expect(overlay.classList.contains("pointer-events-none")).toBe(true);
+    }
+  });
 });
 
 // End-to-end lock for the Task 8.1 fix at its real UI call site. The store-level

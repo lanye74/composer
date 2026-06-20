@@ -141,7 +141,7 @@ const LineRow: React.FC<LineRowProps> = ({ line, lineIndex, duration, onUpdateWo
 
       <div className={cn("flex-1 border-b border-composer-border relative", hasMainWords && "overflow-hidden")}>
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 pointer-events-none"
           style={{ transform: dragShiftPx !== 0 ? `translateX(${dragShiftPx}px)` : undefined }}
         >
           {groupColor && (
