@@ -7,7 +7,13 @@ import { isLineSynced } from "@/domain/voice/predicates";
 // -- Functions ----------------------------------------------------------------
 
 function touchesBackground(updates: Partial<LooseLine>): boolean {
-  return "backgroundText" in updates || "backgroundWords" in updates || "backgroundTextSource" in updates;
+  return (
+    "backgroundText" in updates ||
+    "backgroundWords" in updates ||
+    "backgroundBegin" in updates ||
+    "backgroundEnd" in updates ||
+    "backgroundTextSource" in updates
+  );
 }
 
 // The reconcile chokepoint for the generic per-line update mutators. Merges the

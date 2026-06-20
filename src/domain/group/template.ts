@@ -22,6 +22,8 @@ interface LineTemplate {
   words?: WordTemplate[];
   backgroundText?: string;
   backgroundWords?: WordTemplate[];
+  relativeBackgroundBegin?: number;
+  relativeBackgroundEnd?: number;
   backgroundTextSource?: "extraction" | "manual";
 }
 

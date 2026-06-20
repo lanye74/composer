@@ -14,8 +14,8 @@ function line(fields: LooseLine) {
 }
 
 function lineSyncedMainWithLineSyncedBg(begin: number, end: number) {
-  // Build a line-synced bg the way the funnel does: reconcileLine cannot carry a
-  // line-synced background, so place one nested directly over a line-synced main.
+  // Place a line-synced bg nested directly so the fixture is explicit about the
+  // voice shape under test, independent of the flat-input path.
   const base = line({ id: "L1", text: "Real line", agentId: "v1", begin, end });
   const half = { begin: (begin + end) / 2, end };
   return { ...base, background: { text: "ooh ahh", begin: half.begin, end: half.end, source: "manual" as const } };

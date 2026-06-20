@@ -29,6 +29,10 @@ function shiftLine(line: LyricLine, shiftSec: number): LyricLine {
   }
   const lineBgWords = bgWords(line);
   if (lineBgWords) flat.backgroundWords = lineBgWords.map((w) => shiftWord(w, shiftSec));
+  if (flat.backgroundBegin !== undefined && flat.backgroundEnd !== undefined) {
+    flat.backgroundBegin = Math.max(0, flat.backgroundBegin - shiftSec);
+    flat.backgroundEnd = Math.max(0, flat.backgroundEnd - shiftSec);
+  }
   return reconcileLine(flat);
 }
 

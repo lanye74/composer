@@ -1,8 +1,7 @@
 import { belongsToInstance } from "@/domain/instance/predicates";
-import { mainBounds } from "@/domain/line/bounds";
-import { type LyricLine, reconcileLine, toFlat } from "@/domain/line/model";
-import { isLineSynced } from "@/domain/line/predicates";
-import { bgWords, mainWords } from "@/domain/line/voices";
+import { instanceLineFromTemplate } from "@/domain/group/instance-line";
+import type { LyricLine } from "@/domain/line/model";
+import { shiftLineBy } from "@/domain/line/shift-timing";
 import type { LinkGroup } from "@/domain/group/template";
 import { commitHistory } from "@/stores/project/history-helpers";
 import type { GroupActions, GroupsState, ProjectStore } from "@/stores/project/types";
@@ -109,37 +108,11 @@ const createGroupsSlice: StateCreator<ProjectStore, [], [], GroupsState & GroupA
       while (usedIndices.has(instanceIdx)) instanceIdx++;
 
       const newLines: LyricLine[] = structure.map((tplLine, templateLineIdx) =>
-        reconcileLine({
+        instanceLineFromTemplate(tplLine, instanceStart, {
           id: crypto.randomUUID(),
-          text: tplLine.text,
-          agentId: tplLine.agentId,
           groupId,
           instanceIdx,
           templateLineIdx,
-          ...(tplLine.relativeBegin !== undefined ? { begin: tplLine.relativeBegin + instanceStart } : {}),
-          ...(tplLine.relativeEnd !== undefined ? { end: tplLine.relativeEnd + instanceStart } : {}),
-          ...(tplLine.words
-            ? {
-                words: tplLine.words.map((w) => ({
-                  text: w.text,
-                  begin: w.relativeBegin + instanceStart,
-                  end: w.relativeEnd + instanceStart,
-                  ...(w.explicit ? { explicit: true as const } : {}),
-                })),
-              }
-            : {}),
-          ...(tplLine.backgroundText !== undefined ? { backgroundText: tplLine.backgroundText } : {}),
-          ...(tplLine.backgroundWords
-            ? {
-                backgroundWords: tplLine.backgroundWords.map((w) => ({
-                  text: w.text,
-                  begin: w.relativeBegin + instanceStart,
-                  end: w.relativeEnd + instanceStart,
-                  ...(w.explicit ? { explicit: true as const } : {}),
-                })),
-              }
-            : {}),
-          ...(tplLine.backgroundTextSource !== undefined ? { backgroundTextSource: tplLine.backgroundTextSource } : {}),
         }),
       );
 
@@ -191,25 +164,11 @@ const createGroupsSlice: StateCreator<ProjectStore, [], [], GroupsState & GroupA
   shiftInstance: (groupId, instanceIdx, deltaSeconds) =>
     set((state) =>
       commitHistory(state, {
-        lines: state.lines.map((line) => {
-          if (line.groupId !== groupId || line.instanceIdx !== instanceIdx || line.detached) return line;
-          const lineBounds = isLineSynced(line) ? mainBounds(line) : null;
-          return reconcileLine({
-            ...toFlat(line),
-            begin: lineBounds ? lineBounds.begin + deltaSeconds : undefined,
-            end: lineBounds ? lineBounds.end + deltaSeconds : undefined,
-            words: mainWords(line)?.map((w) => ({
-              ...w,
-              begin: w.begin + deltaSeconds,
-              end: w.end + deltaSeconds,
-            })),
-            backgroundWords: bgWords(line)?.map((w) => ({
-              ...w,
-              begin: w.begin + deltaSeconds,
-              end: w.end + deltaSeconds,
-            })),
-          });
-        }),
+        lines: state.lines.map((line) =>
+          line.groupId !== groupId || line.instanceIdx !== instanceIdx || line.detached
+            ? line
+            : shiftLineBy(line, deltaSeconds),
+        ),
       }),
     ),
 });

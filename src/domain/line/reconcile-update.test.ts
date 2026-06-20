@@ -65,11 +65,11 @@ describe("reconcileUpdate · transition resolves over the background's own bound
 });
 
 describe("reconcileUpdate · background-touching and other-granularity updates", () => {
-  it("uses the flat result (untimed) when the update explicitly sets backgroundText", () => {
+  it("retimes nothing and keeps the line-synced bounds when only backgroundText changes", () => {
     const prev = lineSyncedBgLine();
     const next = reconcileUpdate(prev, { backgroundText: "new bg" });
     expect(bgText(next)).toBe("new bg");
-    expect(bgBounds(next)).toBeNull();
+    expect(bgBounds(next)).toEqual({ begin: 3, end: 7 });
     expect(bgWords(next)).toBeUndefined();
   });
 
@@ -85,9 +85,17 @@ describe("reconcileUpdate · background-touching and other-granularity updates",
     expect(bgBounds(next)).toEqual({ begin: 0, end: 2 });
   });
 
-  it("clears the background when the update clears backgroundText", () => {
+  it("clears a line-synced background only when the bounds are cleared too", () => {
     const prev = lineSyncedBgLine();
-    const next = reconcileUpdate(prev, { backgroundText: undefined, backgroundTextSource: undefined });
+    const stillTimed = reconcileUpdate(prev, { backgroundText: undefined, backgroundTextSource: undefined });
+    expect(bgVoice(stillTimed)).not.toBeNull();
+
+    const next = reconcileUpdate(prev, {
+      backgroundText: undefined,
+      backgroundBegin: undefined,
+      backgroundEnd: undefined,
+      backgroundTextSource: undefined,
+    });
     expect(bgVoice(next)).toBeNull();
   });
 

@@ -1,9 +1,10 @@
 import { instanceBounds } from "@/domain/instance/bounds";
 import { linesOfInstance } from "@/domain/instance/enumerate";
-import { mainBounds } from "@/domain/line/bounds";
+import { bgBounds, mainBounds } from "@/domain/line/bounds";
 import type { LineTemplate, LinkGroup, WordTemplate } from "@/domain/group/template";
 import type { LyricLine } from "@/domain/line/model";
-import { bgSource, bgText, bgWords, lineText, mainWords } from "@/domain/line/voices";
+import { bgSource, bgText, bgVoice, bgWords, lineText, mainWords } from "@/domain/line/voices";
+import { isLineSynced as isLineSyncedVoice } from "@/domain/voice/predicates";
 import { GROUP_COLORS, pickNextGroupColor } from "@/utils/group-colors";
 
 // -- Types ---------------------------------------------------------------------
@@ -125,6 +126,8 @@ function instanceToTemplate(lines: LyricLine[], groupId: string, instanceIdx: nu
     }));
 
     const lineBounds = mainBounds(line);
+    const bg = bgVoice(line);
+    const lineSyncedBg = bg !== null && isLineSyncedVoice(bg) ? bgBounds(line) : null;
     templates.push({
       text: lineText(line),
       agentId: line.agentId,
@@ -133,6 +136,12 @@ function instanceToTemplate(lines: LyricLine[], groupId: string, instanceIdx: nu
       words: tplWords,
       backgroundText: bgText(line),
       backgroundWords: tplBgWords,
+      ...(lineSyncedBg
+        ? {
+            relativeBackgroundBegin: lineSyncedBg.begin - startTime,
+            relativeBackgroundEnd: lineSyncedBg.end - startTime,
+          }
+        : {}),
       backgroundTextSource: bgSource(line),
     });
   }

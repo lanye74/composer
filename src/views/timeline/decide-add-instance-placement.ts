@@ -44,6 +44,10 @@ function templateDuration(template: LineTemplate[]): number {
     }
     if (tpl.relativeBegin !== undefined && tpl.relativeBegin < start) start = tpl.relativeBegin;
     if (tpl.relativeEnd !== undefined && tpl.relativeEnd > end) end = tpl.relativeEnd;
+    if (tpl.relativeBackgroundBegin !== undefined && tpl.relativeBackgroundBegin < start) {
+      start = tpl.relativeBackgroundBegin;
+    }
+    if (tpl.relativeBackgroundEnd !== undefined && tpl.relativeBackgroundEnd > end) end = tpl.relativeBackgroundEnd;
   }
   if (!Number.isFinite(start) || !Number.isFinite(end)) return 0;
   return Math.max(0, end - start);

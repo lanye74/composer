@@ -15,7 +15,10 @@ interface BackgroundParams {
   source: BackgroundSource;
 }
 
-type BackgroundFields = Pick<LineFields, "backgroundText" | "backgroundWords" | "backgroundTextSource">;
+type BackgroundFields = Pick<LineFields, "backgroundText" | "backgroundWords" | "backgroundTextSource"> & {
+  backgroundBegin?: undefined;
+  backgroundEnd?: undefined;
+};
 
 // -- Nested writes ------------------------------------------------------------
 
@@ -58,21 +61,39 @@ function applyBackground(line: LyricLine, params: BackgroundParams): LyricLine {
 // Keeps backgroundText, backgroundWords, and the backgroundTextSource
 // provenance flag coherent for the flat write paths (word-synced and untimed
 // background edits that round-trip through reconcileLine): an empty write clears
-// all three.
+// them. The line-synced bounds are always cleared here: this funnel never
+// writes a line-synced background (that goes through applyBackground with
+// bounds), and leaving stale backgroundBegin/end behind would let reconcileLine
+// rebuild a line-synced background the caller did not ask for.
 function backgroundFields(params: BackgroundParams): BackgroundFields {
   const text = params.text && params.text.trim().length > 0 ? params.text : undefined;
   const words = params.words && params.words.length > 0 ? params.words : undefined;
   if (!text && !words) {
-    return { backgroundText: undefined, backgroundWords: undefined, backgroundTextSource: undefined };
+    return {
+      backgroundText: undefined,
+      backgroundWords: undefined,
+      backgroundBegin: undefined,
+      backgroundEnd: undefined,
+      backgroundTextSource: undefined,
+    };
   }
-  return { backgroundText: text, backgroundWords: words, backgroundTextSource: params.source };
+  return {
+    backgroundText: text,
+    backgroundWords: words,
+    backgroundBegin: undefined,
+    backgroundEnd: undefined,
+    backgroundTextSource: params.source,
+  };
 }
 
-// The coherent all-undefined triple, for clear sites where there is no
-// meaningful source to stamp.
+// The coherent all-undefined set, for clear sites where there is no meaningful
+// source to stamp. Clears the line-synced bounds too so a line-synced
+// background is fully removed, not silently rebuilt from surviving bounds.
 const CLEARED_BACKGROUND: BackgroundFields = {
   backgroundText: undefined,
   backgroundWords: undefined,
+  backgroundBegin: undefined,
+  backgroundEnd: undefined,
   backgroundTextSource: undefined,
 };
 

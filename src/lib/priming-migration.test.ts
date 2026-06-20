@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { mainBounds } from "@/domain/line/bounds";
+import { setBackground } from "@/domain/line/background";
+import { bgBounds, mainBounds } from "@/domain/line/bounds";
 import { reconcileLine } from "@/domain/line/model";
 import type { LyricLine } from "@/domain/line/model";
 import { bgWords, lineText, mainWords } from "@/domain/line/voices";
@@ -58,6 +59,27 @@ describe("shiftAllTimings", () => {
     const bg = bgWords(out[0]) ?? [];
     expect(bg[0].begin).toBeCloseTo(0.7);
     expect(bg[0].end).toBeCloseTo(1.3);
+  });
+
+  it("subtracts the shift from a line-synced background's bounds", () => {
+    const line = setBackground(
+      reconcileLine({ id: "L", text: "main", agentId: "a", words: [{ text: "main", begin: 1.0, end: 2.0 }] }),
+      { text: "ooh", begin: 1.2, end: 1.8, source: "manual" },
+    );
+    const out = shiftAllTimings([line], 0.5);
+    expect(bgWords(out[0])).toBeUndefined();
+    expect(bgBounds(out[0])).toEqual({ begin: 0.7, end: 1.3 });
+  });
+
+  it("clamps a line-synced background's bounds to 0", () => {
+    const line = setBackground(reconcileLine({ id: "L", text: "main", agentId: "a", begin: 0.1, end: 0.4 }), {
+      text: "ooh",
+      begin: 0.1,
+      end: 0.3,
+      source: "manual",
+    });
+    const out = shiftAllTimings([line], 0.5);
+    expect(bgBounds(out[0])).toEqual({ begin: 0, end: 0 });
   });
 
   it("leaves untimed lines untouched", () => {

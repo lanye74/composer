@@ -18,8 +18,18 @@ interface LineFields {
 
 // A line shape before reconcileLine lifts it to the nested model: any
 // combination of flat timing fields may be present. This is the input type for
-// reconcileLine and for every store update payload (callers stay flat).
-type LooseLine = LineFields & { words?: WordTiming[]; begin?: number; end?: number };
+// reconcileLine and for every store update payload (callers stay flat). The
+// background mirrors the main: backgroundWords for word-synced,
+// backgroundBegin/backgroundEnd for line-synced, backgroundText alone for
+// untimed. Because all three states are expressible here, the flat round-trip
+// is lossless and never silently drops a line-synced background.
+type LooseLine = LineFields & {
+  words?: WordTiming[];
+  begin?: number;
+  end?: number;
+  backgroundBegin?: number;
+  backgroundEnd?: number;
+};
 
 // Identity fields stay flat on the stored line; timing lives nested inside the
 // main Voice and optional background BackgroundVoice.
@@ -43,17 +53,36 @@ type LyricLine = NestedLyricLine;
 
 // Lifts a flat LooseLine to the nested stored model. A `words` array (even
 // empty) makes the main voice word-synced and drops begin/end; otherwise a
-// begin/end pair makes it line-synced; otherwise it is untimed. A background
-// voice is present when there is background text or a non-empty background word
-// array, carrying the provenance source. This is the single write chokepoint:
-// every store update merges flat fields then calls reconcileLine.
+// begin/end pair makes it line-synced; otherwise it is untimed. The background
+// mirrors that precedence: a non-empty backgroundWords array wins, else a
+// backgroundBegin/backgroundEnd pair makes it line-synced, else backgroundText
+// alone makes it untimed. The provenance source rides along. This is the single
+// write chokepoint: every store update merges flat fields then calls reconcileLine.
 function reconcileLine(line: LooseLine): LyricLine {
-  const { words, begin, end, backgroundText, backgroundWords, backgroundTextSource, text, ...identity } = line;
+  const {
+    words,
+    begin,
+    end,
+    backgroundText,
+    backgroundWords,
+    backgroundBegin,
+    backgroundEnd,
+    backgroundTextSource,
+    text,
+    ...identity
+  } = line;
   const main: Voice =
     words !== undefined ? { text, words } : begin !== undefined && end !== undefined ? { text, begin, end } : { text };
   let background: BackgroundVoice | undefined;
   if (backgroundWords !== undefined && backgroundWords.length > 0) {
     background = { text: backgroundText ?? "", words: backgroundWords, source: backgroundTextSource };
+  } else if (backgroundBegin !== undefined && backgroundEnd !== undefined) {
+    background = {
+      text: backgroundText ?? "",
+      begin: backgroundBegin,
+      end: backgroundEnd,
+      source: backgroundTextSource,
+    };
   } else if (backgroundText !== undefined) {
     background = { text: backgroundText, source: backgroundTextSource };
   }
@@ -73,12 +102,13 @@ function toFlat(line: LyricLine): LooseLine {
     flat.begin = main.begin;
     flat.end = main.end;
   }
-  // No line-synced-background branch: LooseLine has no backgroundBegin/end field
-  // to emit one, and reconcileLine never builds one. A later phase that adds
-  // line-synced backgrounds must extend both LooseLine and this block.
   if (background !== undefined) {
     flat.backgroundText = background.text;
     if ("words" in background) flat.backgroundWords = background.words;
+    else if ("begin" in background) {
+      flat.backgroundBegin = background.begin;
+      flat.backgroundEnd = background.end;
+    }
     flat.backgroundTextSource = background.source;
   }
   return flat;

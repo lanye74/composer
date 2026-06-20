@@ -1,5 +1,6 @@
+import { instanceLineFromTemplate } from "@/domain/group/instance-line";
 import type { LineTemplate, LinkGroup } from "@/domain/group/template";
-import { reconcileLine, toFlat, type LyricLine } from "@/domain/line/model";
+import type { LyricLine } from "@/domain/line/model";
 import { mainWords } from "@/domain/line/voices";
 
 interface FillResult {
@@ -46,39 +47,11 @@ function fillEmptyLinesWithInstance(input: FillInput): FillResult {
   const updatedLines = lines.map((line, idx) => {
     if (idx < startIndex || idx >= startIndex + template.length) return line;
     const tplLine = template[idx - startIndex];
-    return reconcileLine({
-      ...toFlat(line),
-      text: tplLine.text,
-      agentId: tplLine.agentId,
+    return instanceLineFromTemplate(tplLine, instanceStart, {
+      id: line.id,
       groupId,
       instanceIdx,
       templateLineIdx: idx - startIndex,
-      ...(tplLine.relativeBegin !== undefined
-        ? { begin: tplLine.relativeBegin + instanceStart }
-        : { begin: undefined }),
-      ...(tplLine.relativeEnd !== undefined ? { end: tplLine.relativeEnd + instanceStart } : { end: undefined }),
-      ...(tplLine.words
-        ? {
-            words: tplLine.words.map((w) => ({
-              text: w.text,
-              begin: w.relativeBegin + instanceStart,
-              end: w.relativeEnd + instanceStart,
-            })),
-          }
-        : { words: undefined }),
-      ...(tplLine.backgroundText !== undefined
-        ? { backgroundText: tplLine.backgroundText }
-        : { backgroundText: undefined }),
-      ...(tplLine.backgroundWords
-        ? {
-            backgroundWords: tplLine.backgroundWords.map((w) => ({
-              text: w.text,
-              begin: w.relativeBegin + instanceStart,
-              end: w.relativeEnd + instanceStart,
-            })),
-          }
-        : { backgroundWords: undefined }),
-      backgroundTextSource: tplLine.backgroundTextSource,
     });
   });
 

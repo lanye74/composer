@@ -29,6 +29,7 @@ const MAIN_CASES: MainCase[] = [
 const BG_CASES: BgCase[] = [
   { name: "none", fields: {} },
   { name: "text-only", fields: { backgroundText: "ooh ah" } },
+  { name: "line-synced", fields: { backgroundText: "coda", backgroundBegin: 5, backgroundEnd: 7.5 } },
   { name: "word-synced", fields: { backgroundText: "ah oh", backgroundWords: bgWords } },
 ];
 
@@ -108,6 +109,57 @@ describe("invariants", () => {
       expect(flat.words).toEqual(mainWords);
       expect("begin" in flat).toBe(false);
       expect("end" in flat).toBe(false);
+    });
+  });
+
+  describe("background words win over background begin/end", () => {
+    it("reconciles a background with both words and begin/end to word-synced with no bg bounds", () => {
+      const input = loose({
+        backgroundText: "ah oh",
+        backgroundWords: bgWords,
+        backgroundBegin: 0,
+        backgroundEnd: 999,
+      });
+      const reconciled = reconcileLine(input);
+      expect(reconciled.background && "words" in reconciled.background).toBe(true);
+      expect(reconciled.background && "begin" in reconciled.background).toBe(false);
+    });
+
+    it("toFlat emits no bg begin/end when background words won", () => {
+      const flat = toFlat(
+        reconcileLine(
+          loose({ backgroundText: "ah oh", backgroundWords: bgWords, backgroundBegin: 0, backgroundEnd: 999 }),
+        ),
+      );
+      expect(flat.backgroundWords).toEqual(bgWords);
+      expect("backgroundBegin" in flat).toBe(false);
+      expect("backgroundEnd" in flat).toBe(false);
+    });
+  });
+
+  describe("line-synced background", () => {
+    it("builds a line-synced background voice from bounds", () => {
+      const reconciled = reconcileLine(loose({ backgroundText: "coda", backgroundBegin: 5, backgroundEnd: 7.5 }));
+      expect(reconciled.background).toEqual({ text: "coda", begin: 5, end: 7.5, source: undefined });
+    });
+
+    it("survives the round-trip carrying its source", () => {
+      const input = loose({
+        backgroundText: "coda",
+        backgroundBegin: 5,
+        backgroundEnd: 7.5,
+        backgroundTextSource: "manual",
+      });
+      const flat = toFlat(reconcileLine(input));
+      expect(flat.backgroundBegin).toBe(5);
+      expect(flat.backgroundEnd).toBe(7.5);
+      expect(flat.backgroundTextSource).toBe("manual");
+      expect(flat).toEqual(input);
+    });
+
+    it("needs both bounds: a lone begin falls back to text-only", () => {
+      const reconciled = reconcileLine(loose({ backgroundText: "coda", backgroundBegin: 5 }));
+      expect(reconciled.background).toEqual({ text: "coda", source: undefined });
     });
   });
 

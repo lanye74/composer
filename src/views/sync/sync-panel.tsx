@@ -15,7 +15,8 @@ import {
 } from "@/utils/animationVariants";
 import { isLinked } from "@/domain/instance/predicates";
 import { effectiveBounds, mainBounds } from "@/domain/line/bounds";
-import { reconcileLine, toFlat } from "@/domain/line/model";
+import { toFlat } from "@/domain/line/model";
+import { reconcileUpdate } from "@/domain/line/reconcile-update";
 import { isLineSynced } from "@/domain/line/predicates";
 import { bgText, bgWords, lineText, mainWords } from "@/domain/line/voices";
 import {
@@ -193,7 +194,11 @@ const SyncPanel: React.FC = () => {
       if (newGranularity === granularity) return;
 
       if (newGranularity === "word" && hasLineTiming(lines)) {
-        const convertedLines = lines.map((line) => reconcileLine(convertLineToWord(toFlat(line))));
+        const convertedLines = lines.map((line) => {
+          const converted = convertLineToWord(toFlat(line));
+          if (!converted.words) return line;
+          return reconcileUpdate(line, { words: converted.words, begin: undefined, end: undefined });
+        });
         setLinesWithHistory(convertedLines);
       }
 
